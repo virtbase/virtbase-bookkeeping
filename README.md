@@ -1,0 +1,103 @@
+# Virtbase Bookkeeping
+
+Local app that turns Stripe and Monero payments into Lexware CSV imports and keeps a ledger of what was exported.
+
+## Start
+
+```bash
+bun install
+bun run start
+```
+
+The app opens in the browser on a random local port. If it does not, open the link printed in the terminal. The link works once.
+
+The app stops by itself 2 minutes after the last tab closes, but never during a running sync or export. Starting it again while it runs opens a new tab in the running app. `BOOKKEEPING_IDLE_SECONDS` changes the wait. With `BOOKKEEPING_NO_OPEN=1` no browser opens and the app keeps running until you stop it.
+
+To build a single binary:
+
+```bash
+bun run compile
+./dist/virtbase-bookkeeping
+```
+
+The binary contains the web app and Monero. It needs no other files.
+
+## Packages
+
+```bash
+bun run package:deb
+sudo apt install ./dist/packages/virtbase-bookkeeping_*_amd64.deb
+```
+
+This adds a menu entry and the `virtbase-bookkeeping` command. Install a newer package the same way to update. `sudo apt remove virtbase-bookkeeping` removes the app and leaves `~/Bookkeeping` alone.
+
+`bun run package` builds every target in [scripts/packaging/targets.ts](scripts/packaging/targets.ts). To add a target, add an entry there with its Bun target, architecture and build function. Product details live in [scripts/packaging/product.ts](scripts/packaging/product.ts). The version comes from `package.json`.
+
+Never run `strip` on the binary, it breaks the app. For this reason the package is built with `dpkg-deb` and not with debhelper.
+
+## First run
+
+In **Einstellungen**:
+
+1. Add a restricted Stripe key with read access to Balance, Balance Transactions, Charges, Customers, Disputes, Payouts and Refunds.
+2. Set **Bereits in Lexware bis** to the last day that is already booked. Older rows count as exported.
+3. Set **Gebühren gebucht bis** to the last month with booked fee rows.
+4. Add a Lexware API key to get invoice suggestions for Monero payments.
+
+## Monero
+
+Payments can be synced without Monero GUI. The app bundles the official `monero-wallet-rpc`, so nothing has to be installed. Set up the wallet in **Einstellungen** with the primary address, the secret view key and a restore height. This creates a view-only wallet, which cannot spend. A seed or spend key is never needed.
+
+The wallet program only runs during a sync and listens on `127.0.0.1`. The first healthy node from the list is used, the others are fallbacks. HTTPS connections are verified for chain and hostname, then pinned to that exact certificate. Payments need 10 confirmations.
+
+A view-only wallet cannot recognize change from your own spending, so change can appear as a payment. Hide those rows with **Ausblenden**.
+
+The CSV import from Monero GUI still works. Both use the same transaction ID, so a payment is never imported twice.
+
+`bun run start` and `bun run compile` download the Monero CLI once into `vendor/monero` and check it against the pinned SHA-256 from the signed `hashes.txt`. To update it, verify the new `hashes.txt` with the binaryFate key and change the pins in `src/server/monero/bundle.ts`. Monero is BSD-3-Clause licensed, see `vendor/monero/LICENSE`.
+
+## Data
+
+Everything lives in `~/Bookkeeping`, or in `BOOKKEEPING_HOME` if set:
+
+| Path | Content |
+| --- | --- |
+| `bookkeeping.sqlite` | Ledger, export history, settings, audit log |
+| `secrets.json` | API keys, readable by your user only |
+| `exports/` | Exported CSV files |
+| `monero/` | View-only wallet, encrypted with a random password from `secrets.json` |
+| `bin/` | Verified copy of the bundled wallet program |
+
+## Lexware accounts
+
+Each category belongs to a Lexware account, set under **CSV-Export** in the settings. By default Stripe and fees go to `Stripe`, Monero goes to `Monero`. One click on **CSV exportieren** writes one file per account, either all of them or none. Categories with the same account name share a file. Changing the assignment only affects new exports.
+
+## Reset
+
+**Erweiterte Optionen** in the settings has two reset actions:
+
+- **Exporte zurücksetzen** deletes exports, hidden rows and Monero assignments, then reloads the transactions. Settings, keys and the wallet stay. Rows already imported into Lexware show as ready again, so check **Bereits in Lexware bis** afterwards.
+- **Datenbank zurücksetzen** deletes everything, including settings, API keys and the view-only wallet.
+
+Both first write `bookkeeping.sqlite.reset-<time>.bak` into the data folder. To restore one, stop the app and copy it over `bookkeeping.sqlite`. Exported CSV files are never deleted. API keys are not part of the backup.
+
+## Statistics
+
+The Statistiken tab charts gross revenue by source or Lexware account, revenue by product and Stripe and PayPal fees. Payments and refunds count as revenue, payouts do not. Hidden rows and Monero payments still waiting for review are left out. Revenue counts on its German calendar day. Fees count on their UTC day, so a month of fees matches the Stripe invoice and the PayPal statement.
+
+The gray bars show a linear trend over the last finished periods: up to 12 months, 12 weeks or 28 days. It needs at least 3 months, 4 weeks or 14 days, and they appear only when the range reaches today. In the running period the gray part fills up to the forecast. That period is never part of the trend.
+
+Stripe sync fetches the last 24 months for these charts. Rows older than the Startpunkt stay out of the transaction list and can not be exported.
+
+## Month-end fees
+
+The two fee rows appear in the table once a month has ended in UTC. They come from `fee_details` on the Stripe balance transactions: `stripe_fee` matches the Stripe tax invoice, `payment_method_passthrough_fee` matches the PayPal statement.
+
+## Development
+
+```bash
+bun run dev
+bun run test
+bun run typecheck
+bun run lint
+```
