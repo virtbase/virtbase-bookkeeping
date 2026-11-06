@@ -462,7 +462,7 @@ export function TransactionsPage({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative">
           <Search
             className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
@@ -578,7 +578,7 @@ export function TransactionsPage({
       />
 
       {selected.length > 0 && (
-        <div className="-translate-x-1/2 slide-in-from-bottom-4 fixed bottom-4 left-1/2 z-30 flex animate-in items-center gap-2 whitespace-nowrap rounded-lg border bg-card p-1.5 shadow-lg duration-200">
+        <div className="-translate-x-1/2 slide-in-from-bottom-4 fixed bottom-4 left-1/2 z-30 flex w-max max-w-[calc(100vw-2rem)] animate-in flex-wrap items-center justify-center gap-2 rounded-lg border bg-card p-1.5 shadow-lg duration-200">
           <span className="flex h-8 items-center gap-1 rounded-md border border-dashed pr-1 pl-2.5">
             {selected.length} ausgewählt
             <Button

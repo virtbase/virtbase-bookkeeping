@@ -75,6 +75,8 @@ export function SortHeader<TData extends RowData>({
   );
 }
 
+const FLEXIBLE_COLUMN_WIDTH = 160;
+
 interface DataTableProps<TData extends RowData> {
   table: TanstackTable<DataTableFeatures, TData>;
   empty: ReactNode;
@@ -90,12 +92,17 @@ export function DataTable<TData extends RowData>({
 
   const rows = table.getRowModel().rows;
   const { pageIndex, pageSize } = table.store.state.pagination;
-  const columnCount = table.getAllColumns().length;
+  const columns = table.getAllColumns();
+  const columnCount = columns.length;
+  const minWidth = columns.reduce(
+    (sum, column) => sum + (column.columnDef.size || FLEXIBLE_COLUMN_WIDTH),
+    0,
+  );
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="overflow-x-auto rounded-md border">
-        <Table className="min-w-[880px] table-fixed">
+      <div className="relative overflow-x-auto rounded-md border">
+        <Table className="table-fixed" style={{ minWidth }}>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
@@ -103,7 +110,7 @@ export function DataTable<TData extends RowData>({
                   <TableHead
                     key={header.id}
                     style={{ width: header.column.columnDef.size || undefined }}
-                    className="h-10 px-2 font-medium first:pl-3"
+                    className="h-10 overflow-hidden px-2 font-medium first:pl-3"
                   >
                     {header.isPlaceholder
                       ? null
@@ -151,7 +158,7 @@ export function DataTable<TData extends RowData>({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4 px-1 text-muted-foreground text-sm">
         <span>{footer}</span>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="whitespace-nowrap">Zeilen pro Seite</span>
             <Select

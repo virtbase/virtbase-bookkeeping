@@ -164,7 +164,7 @@ export function AuditLogPage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative">
           <Search
             className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"

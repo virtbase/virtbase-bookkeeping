@@ -240,7 +240,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
 
   return (
     <>
-      <div className="flex min-h-8 flex-wrap items-center gap-2">
+      <div className="flex min-h-8 shrink-0 flex-wrap items-center gap-2">
         <div className="relative">
           <Search
             className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
