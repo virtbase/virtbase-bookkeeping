@@ -26,6 +26,11 @@ export function rowLabel(count: number): string {
   return countLabel(count, "Zeile", "Zeilen");
 }
 
+export function formatBytes(bytes: number): string {
+  const megabytes = bytes / 1048576;
+  return `${megabytes.toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`;
+}
+
 export function formatStamp(unix: number): string {
   return stamp.format(new Date(unix * 1000)).replace(",", "");
 }

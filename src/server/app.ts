@@ -19,6 +19,7 @@ import type {
 } from "../shared/types.ts";
 import { assetType, readAsset } from "./assets.ts";
 import { audit } from "./audit.ts";
+import { assertBackupFolder, BackupService } from "./backup.ts";
 import type { Db } from "./db/client.ts";
 import { transactions } from "./db/schema.ts";
 import { renderAuditCsv } from "./export/csv.ts";
@@ -56,6 +57,7 @@ import { localDay } from "./time.ts";
 
 export interface AppDependencies {
   presence?: Presence;
+  backups?: BackupService;
   db: Db;
   paths: Paths;
   secrets: SecretStore;
@@ -118,6 +120,9 @@ export function createApp(dependencies: AppDependencies): Hono {
     paths.defaultExportDir,
   );
 
+  const backups =
+    dependencies.backups ?? new BackupService(db, paths, settings, now);
+
   const app = new Hono();
   app.use(securityHeaders(session));
   app.use(guard(session));
@@ -166,6 +171,7 @@ export function createApp(dependencies: AppDependencies): Hono {
       stripeKeyType: keyType(stored.stripeKey),
       lexwareConfigured: Boolean(stored.lexwareKey),
       moneroConfigured: moneroSync.status().configured,
+      backupFailed: backups.error !== null,
     };
     return context.json(summary);
   });
@@ -405,6 +411,10 @@ export function createApp(dependencies: AppDependencies): Hono {
 
   app.get("/api/settings", (context) => context.json(settings()));
 
+  app.get("/api/backups", (context) => context.json(backups.status()));
+
+  app.post("/api/backups", (context) => context.json(backups.create()));
+
   app.post("/api/system/folder", async (context) => {
     const { current } = folderSchema.parse(await context.req.json());
     const choose = dependencies.chooseFolder ?? openFolderDialog;
@@ -422,9 +432,23 @@ export function createApp(dependencies: AppDependencies): Hono {
         "Dieser Ordner kann nicht angelegt werden.",
       );
     }
+    try {
+      if (next.backupDir) {
+        assertBackupFolder(next.backupDir);
+      }
+    } catch {
+      throw new FormError(
+        "backupDir",
+        "Dieser Ordner ist nicht erreichbar oder nicht beschreibbar.",
+      );
+    }
+    const backupDirChanged = next.backupDir !== settings().backupDir;
     writeSettings(db, next);
     refreshFeeRows(db, next, now());
     audit(db, "settings", {});
+    if (backupDirChanged) {
+      backups.runIfDue();
+    }
     return context.json(next);
   });
 

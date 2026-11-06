@@ -91,6 +91,10 @@ export const settingsSchema = z.object({
     .trim()
     .min(1, "Bitte einen Ordner angeben.")
     .regex(/^\//, "Bitte einen absoluten Pfad angeben, beginnend mit /."),
+  backupDir: z
+    .string()
+    .trim()
+    .regex(/^(\/.*)?$/, "Bitte einen absoluten Pfad angeben, beginnend mit /."),
   dateFormat: z.enum(["iso", "de"]),
   decimalFormat: z.enum(["dot", "comma"]),
   baselineDate,

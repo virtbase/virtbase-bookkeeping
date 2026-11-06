@@ -68,6 +68,24 @@ Everything lives in `~/Bookkeeping`, or in `BOOKKEEPING_HOME` if set:
 | `monero/` | View-only wallet, encrypted with a random password from `secrets.json` |
 | `bin/` | Verified copy of the bundled wallet program |
 
+## Backups
+
+The app saves a copy of the database to `~/Bookkeeping/backups`. It does this at start, every hour and when it stops, if something changed or the last copy is a day old. Each copy is checked before it counts. You can pick another folder under Einstellungen, and a folder on another disk or a NAS also survives a disk failure.
+
+The app keeps the 10 newest copies, one per day for 14 days and one per month forever. It never touches other files in that folder. If a backup fails, the sidebar shows a warning and the audit log records the reason.
+
+Backups do not contain API keys, the Monero wallet or exported CSV files. After a restore on a new computer, enter the keys again and set up the wallet.
+
+To restore a copy, first close every tab and wait until the app has stopped. Then run this with the file you want:
+
+```bash
+cd ~/Bookkeeping
+rm -f bookkeeping.sqlite-wal bookkeeping.sqlite-shm
+cp backups/bookkeeping-2026-11-06T120000Z.sqlite bookkeeping.sqlite
+```
+
+Keep the `.sqlite-wal` and `.sqlite-shm` files out of it: leftover ones would corrupt the restored database.
+
 ## Lexware accounts
 
 Each category belongs to a Lexware account, set under **CSV-Export** in the settings. By default Stripe and fees go to `Stripe`, Monero goes to `Monero`. One click on **CSV exportieren** writes one file per account, either all of them or none. Categories with the same account name share a file. Changing the assignment only affects new exports.
@@ -101,3 +119,11 @@ bun run test
 bun run typecheck
 bun run lint
 ```
+
+To test without touching your real data, use another home:
+
+```bash
+BOOKKEEPING_HOME=~/Bookkeeping-test bun run start
+```
+
+If you copy a database there, also change `exportDir`, or exports land in the real folder.

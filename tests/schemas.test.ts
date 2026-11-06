@@ -10,6 +10,7 @@ import type { SettingsDto } from "../src/shared/types.ts";
 
 const valid: SettingsDto = {
   exportDir: "/home/name/Bookkeeping/exports",
+  backupDir: "",
   dateFormat: "iso",
   decimalFormat: "dot",
   baselineDate: "2026-01-04T15:30",

@@ -14,10 +14,14 @@ export const AUDIT_LABELS: Record<string, string> = {
   "reset.all": "Datenbank zurückgesetzt",
   "audit.export": "Audit-Log exportiert",
   "statistics.export": "Statistik exportiert",
+  backup: "Sicherung erstellt",
+  "backup.failed": "Sicherung fehlgeschlagen",
 };
 
 const DETAIL_LABELS: Record<string, string> = {
   from: "ab",
+  file: "Datei",
+  reason: "Grund",
   account: "Konto",
   fetched: "abgerufen",
   added: "neu",

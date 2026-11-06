@@ -8,6 +8,7 @@ import {
   Moon,
   ScrollText,
   Sun,
+  TriangleAlert,
 } from "lucide-react";
 import { VirtbaseIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,21 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
           </a>
         ))}
       </div>
-      <div className="mt-auto flex items-center justify-between pr-1 pl-2">
+      {summary?.backupFailed && (
+        <a
+          href="#/einstellungen"
+          className="mt-auto flex items-center gap-2 rounded-md bg-status-amber px-2 py-1.5 text-status-amber-foreground text-xs"
+        >
+          <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+          Sicherung fehlgeschlagen
+        </a>
+      )}
+      <div
+        className={cn(
+          "flex items-center justify-between pr-1 pl-2",
+          !summary?.backupFailed && "mt-auto",
+        )}
+      >
         <span className="text-muted-foreground text-xs tabular-nums">
           v{version}
         </span>

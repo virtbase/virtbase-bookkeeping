@@ -39,6 +39,16 @@ export interface SummaryDto {
   stripeKeyType: "restricted" | "secret" | null;
   lexwareConfigured: boolean;
   moneroConfigured: boolean;
+  backupFailed: boolean;
+}
+
+export interface BackupStatusDto {
+  directory: string;
+  defaultDirectory: string;
+  lastAt: number | null;
+  count: number;
+  sizeBytes: number;
+  error: string | null;
 }
 
 export interface MoneroStatusDto {
@@ -74,6 +84,7 @@ export interface ExportsDto {
 
 export interface SettingsDto {
   exportDir: string;
+  backupDir: string;
   dateFormat: DateFormat;
   decimalFormat: DecimalFormat;
   baselineDate: string;

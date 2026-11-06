@@ -18,6 +18,7 @@ import type { SettingsDto } from "../src/shared/types.ts";
 
 const base: SettingsDto = {
   exportDir: "/tmp",
+  backupDir: "",
   dateFormat: "iso",
   decimalFormat: "dot",
   baselineDate: "",

@@ -11,6 +11,7 @@ import {
   stripeKeySchema,
 } from "@shared/schemas.ts";
 import type {
+  BackupStatusDto,
   DateFormat,
   DecimalFormat,
   RateSource,
@@ -22,6 +23,7 @@ import {
   Braces,
   ChevronDown,
   CircleQuestionMark,
+  DatabaseBackup,
   ExternalLink,
   FileSpreadsheet,
   Flag,
@@ -79,6 +81,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ApiError, api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
+import { countLabel, formatBytes, formatStamp } from "@/lib/format";
 import { DangerZone } from "@/pages/danger-zone";
 import { MoneroWalletSection, NodeList } from "@/pages/monero-settings";
 import { PurposeSheet } from "@/pages/purpose-sheet";
@@ -316,6 +319,7 @@ const ACCOUNT_FIELDS: { source: Source; label: string }[] = [
 
 const FORM_FIELDS: FieldPath<SettingsDto>[] = [
   "exportDir",
+  "backupDir",
   "baselineDate",
   "feesClosedThrough",
   "stripeName",
@@ -327,6 +331,65 @@ const FORM_FIELDS: FieldPath<SettingsDto>[] = [
   ...PURPOSE_KEYS.map((key) => `purposeTemplates.${key}` as const),
 ];
 
+function BackupPanel({
+  status,
+  onChange,
+  onChanged,
+}: {
+  status: BackupStatusDto | null;
+  onChange: (status: BackupStatusDto) => void;
+  onChanged: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const backUp = async () => {
+    setBusy(true);
+    try {
+      onChange(await api.createBackup());
+      toast("Sicherung erstellt.");
+    } catch (error) {
+      toast.error((error as Error).message);
+      onChange(await api.backups());
+    } finally {
+      setBusy(false);
+      await onChanged();
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm">
+          {status?.lastAt
+            ? `Letzte Sicherung ${formatStamp(status.lastAt)}`
+            : "Noch keine Sicherung"}
+        </span>
+        {status && status.count > 0 && (
+          <span className="text-muted-foreground text-xs">
+            {countLabel(status.count, "Sicherung", "Sicherungen")},{" "}
+            {formatBytes(status.sizeBytes)}
+          </span>
+        )}
+        {status?.error && (
+          <span role="alert" className="text-destructive text-xs">
+            {status.error}
+          </span>
+        )}
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={busy}
+        onClick={() => void backUp()}
+      >
+        <DatabaseBackup />
+        Jetzt sichern
+      </Button>
+    </div>
+  );
+}
+
 function GeneralForm({
   initial,
   onChanged,
@@ -337,6 +400,9 @@ function GeneralForm({
   const [picking, setPicking] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [placeholderKey, setPlaceholderKey] = useState<PurposeKey | null>(null);
+  const [backupStatus, setBackupStatus] = useState<BackupStatusDto | null>(
+    null,
+  );
   const form = useForm<SettingsDto>({
     resolver: zodResolver(settingsSchema),
     defaultValues: initial,
@@ -364,18 +430,24 @@ function GeneralForm({
     },
   );
 
-  const pickFolder = async () => {
+  const savedCount = form.formState.submitCount;
+  useEffect(() => {
+    void savedCount;
+    void api.backups().then(setBackupStatus);
+  }, [savedCount]);
+
+  const pickFolder = async (name: "exportDir" | "backupDir") => {
     setPicking(true);
     try {
-      const { path } = await api.chooseFolder(form.getValues("exportDir"));
+      const { path } = await api.chooseFolder(form.getValues(name));
       if (path) {
-        form.setValue("exportDir", path, {
+        form.setValue(name, path, {
           shouldDirty: true,
           shouldValidate: true,
         });
       }
     } catch (error) {
-      form.setError("exportDir", { message: (error as Error).message });
+      form.setError(name, { message: (error as Error).message });
     } finally {
       setPicking(false);
     }
@@ -452,7 +524,7 @@ function GeneralForm({
                       size="icon-xs"
                       aria-label="Ordner auswählen"
                       disabled={picking}
-                      onClick={() => void pickFolder()}
+                      onClick={() => void pickFolder("exportDir")}
                     >
                       <FolderOpen />
                     </InputGroupButton>
@@ -597,6 +669,48 @@ function GeneralForm({
               />
             </Field>
           )}
+        />
+      </Section>
+
+      <Section title="Sicherungen" icon={DatabaseBackup}>
+        <Controller
+          control={form.control}
+          name="backupDir"
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <LabelWithHelp
+                htmlFor="backup-dir"
+                help="Ein Ordner auf einer anderen Festplatte oder einem NAS schützt auch vor einem Festplattenausfall. API-Schlüssel und Monero-Wallet werden nicht gesichert."
+              >
+                Sicherungsordner
+              </LabelWithHelp>
+              <InputGroup>
+                <InputGroupInput
+                  {...field}
+                  id="backup-dir"
+                  aria-invalid={fieldState.invalid}
+                  placeholder={backupStatus?.defaultDirectory}
+                  className="font-mono text-[13px]"
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label="Sicherungsordner auswählen"
+                    disabled={picking}
+                    onClick={() => void pickFolder("backupDir")}
+                  >
+                    <FolderOpen />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+        <BackupPanel
+          status={backupStatus}
+          onChange={setBackupStatus}
+          onChanged={onChanged}
         />
       </Section>
 

@@ -3,6 +3,7 @@ import type { StatisticsDto } from "@shared/statistics.ts";
 import type {
   AuditEventDto,
   AuditExportDto,
+  BackupStatusDto,
   BatchDto,
   ExportsDto,
   FolderChoiceDto,
@@ -80,6 +81,8 @@ export const api = {
   removeMonero: () =>
     request<MoneroStatusDto>("monero/wallet", { method: "DELETE" }),
   audit: () => request<AuditEventDto[]>("audit"),
+  backups: () => request<BackupStatusDto>("backups"),
+  createBackup: () => request<BackupStatusDto>("backups", { method: "POST" }),
   statistics: () => request<StatisticsDto>("statistics"),
   statisticsExported: (rows: number) =>
     request<{ ok: boolean }>("statistics/export", json("POST", { rows })),

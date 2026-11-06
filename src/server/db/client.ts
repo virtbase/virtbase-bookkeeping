@@ -3,7 +3,7 @@ import { type BunSQLiteDatabase, drizzle } from "drizzle-orm/bun-sqlite";
 import { MIGRATIONS } from "./migrations.ts";
 import * as schema from "./schema.ts";
 
-export type Db = BunSQLiteDatabase<typeof schema>;
+export type Db = BunSQLiteDatabase<typeof schema> & { $client: Database };
 
 function userVersion(sqlite: Database): number {
   const row = sqlite.query("PRAGMA user_version").get() as {

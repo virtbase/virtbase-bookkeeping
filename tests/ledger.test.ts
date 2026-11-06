@@ -32,6 +32,7 @@ function createExport(...args: Parameters<typeof createExports>) {
 function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
   return {
     exportDir: mkdtempSync(join(tmpdir(), "bookkeeping-")),
+    backupDir: "",
     dateFormat: "iso",
     decimalFormat: "dot",
     baselineDate: "",

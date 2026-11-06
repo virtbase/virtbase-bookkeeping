@@ -37,6 +37,7 @@ export function readSettings(db: Db, defaultExportDir: string): SettingsDto {
   const stored = readValue(db, SETTINGS_KEY);
   const defaults: SettingsDto = {
     exportDir: defaultExportDir,
+    backupDir: "",
     dateFormat: "iso",
     decimalFormat: "dot",
     baselineDate: "",

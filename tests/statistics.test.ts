@@ -290,6 +290,7 @@ describe("CSV export", () => {
 
 const base: SettingsDto = {
   exportDir: "/tmp",
+  backupDir: "",
   dateFormat: "iso",
   decimalFormat: "dot",
   baselineDate: "",
