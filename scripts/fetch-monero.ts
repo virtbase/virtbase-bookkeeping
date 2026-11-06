@@ -12,44 +12,62 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $ } from "bun";
 import {
-  MONERO_ARCHIVE_SHA256,
-  MONERO_ARCHIVE_URL,
-  MONERO_VERSION,
-  WALLET_RPC_SHA256,
+  moneroArchiveUrl,
+  moneroPlatform,
+  moneroPlatformKey,
 } from "../src/server/monero/bundle.ts";
-
-const vendor = "vendor/monero";
-const binary = join(vendor, "monero-wallet-rpc");
 
 function sha256(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-if (existsSync(binary) && sha256(binary) === WALLET_RPC_SHA256) {
-  process.exit(0);
+export async function extractFromArchive(
+  archive: string,
+  target: string,
+  files: string[],
+): Promise<void> {
+  const listing = await $`tar -tjf ${archive}`.quiet().text();
+  const members = listing
+    .split("\n")
+    .filter((member) => files.includes(member.split("/").at(-1) ?? ""));
+  await $`tar -xjf ${archive} -C ${target} --strip-components=1 ${members}`.quiet();
 }
 
-const work = mkdtempSync(join(tmpdir(), "monero-cli-"));
-try {
-  const archive = join(work, "monero.tar.bz2");
-  console.log(`Monero CLI ${MONERO_VERSION} wird geladen...`);
-  const response = await fetch(MONERO_ARCHIVE_URL);
-  if (!response.ok) {
-    throw new Error(`Download fehlgeschlagen: ${response.status}`);
+export async function fetchMonero(key: string): Promise<string> {
+  const { archiveSha256, walletRpcSha256 } = moneroPlatform(key);
+  const vendor = join("vendor/monero", key);
+  const binary = join(vendor, "monero-wallet-rpc");
+  if (existsSync(binary) && sha256(binary) === walletRpcSha256) {
+    return vendor;
   }
-  await Bun.write(archive, response);
-  if (sha256(archive) !== MONERO_ARCHIVE_SHA256) {
-    throw new Error("Prüfsumme des Monero-Archivs stimmt nicht.");
+
+  const work = mkdtempSync(join(tmpdir(), "monero-cli-"));
+  try {
+    const archive = join(work, "monero.tar.bz2");
+    console.log(`Monero CLI für ${key} wird geladen...`);
+    const response = await fetch(moneroArchiveUrl(key));
+    if (!response.ok) {
+      throw new Error(`Download fehlgeschlagen: ${response.status}`);
+    }
+    await Bun.write(archive, response);
+    if (sha256(archive) !== archiveSha256) {
+      throw new Error("Prüfsumme des Monero-Archivs stimmt nicht.");
+    }
+    await extractFromArchive(archive, work, ["monero-wallet-rpc", "LICENSE"]);
+    const extracted = join(work, "monero-wallet-rpc");
+    if (sha256(extracted) !== walletRpcSha256) {
+      throw new Error("Prüfsumme von monero-wallet-rpc stimmt nicht.");
+    }
+    mkdirSync(vendor, { recursive: true });
+    cpSync(extracted, binary);
+    cpSync(join(work, "LICENSE"), join(vendor, "LICENSE"));
+    chmodSync(binary, 0o755);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
-  await $`tar -xjf ${archive} -C ${work} --strip-components=1 --wildcards ${"*/monero-wallet-rpc"} ${"*/LICENSE"}`.quiet();
-  const extracted = join(work, "monero-wallet-rpc");
-  if (sha256(extracted) !== WALLET_RPC_SHA256) {
-    throw new Error("Prüfsumme von monero-wallet-rpc stimmt nicht.");
-  }
-  mkdirSync(vendor, { recursive: true });
-  cpSync(extracted, binary);
-  cpSync(join(work, "LICENSE"), join(vendor, "LICENSE"));
-  chmodSync(binary, 0o755);
-} finally {
-  rmSync(work, { recursive: true, force: true });
+  return vendor;
+}
+
+if (import.meta.main) {
+  await fetchMonero(process.argv[2] ?? moneroPlatformKey());
 }

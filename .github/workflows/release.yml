@@ -29,15 +29,22 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   packages:
-    name: Publish packages
+    name: Build ${{ matrix.platform }}
     needs: release-please
     if: needs.release-please.outputs.released == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     permissions:
-      attestations: write
-      contents: write
-      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - platform: linux-x64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+          - platform: darwin-arm64
+            runner: macos-15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,20 +57,51 @@ jobs:
         run: bun run package
 
       - name: Smoke test
-        run: bun scripts/smoke-test.ts
+        run: bun run package:smoke
+
+      - name: Keep the packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-${{ matrix.platform }}
+          path: |
+            dist/packages/*.deb
+            dist/packages/*.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish release
+    needs: [release-please, packages]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - name: Collect the packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: packages
+          pattern: packages-*
+          merge-multiple: true
 
       - name: Attest the packages
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: dist/packages/*.deb
+          subject-path: |
+            packages/*.deb
+            packages/*.tar.gz
 
       - name: Write checksums
-        working-directory: dist/packages
-        run: sha256sum ./*.deb > SHA256SUMS
+        working-directory: packages
+        run: sha256sum ./* > SHA256SUMS
 
-      - name: Attach to the release
+      - name: Attach and publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.release-please.outputs.tag }}
-        run: gh release upload "$TAG" dist/packages/*.deb dist/packages/SHA256SUMS
+        run: |
+          gh release upload "$TAG" packages/*
+          gh release edit "$TAG" --draft=false --latest

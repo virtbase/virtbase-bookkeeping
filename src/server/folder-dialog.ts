@@ -24,7 +24,26 @@ const ZENITY: FolderDialog = {
   ],
 };
 
-function preferred(): FolderDialog[] {
+const OSASCRIPT: FolderDialog = {
+  command: "osascript",
+  args: (start) => [
+    "-e",
+    "on run argv",
+    "-e",
+    "POSIX path of (choose folder with prompt (item 1 of argv) default location (POSIX file (item 2 of argv)))",
+    "-e",
+    "end run",
+    TITLE,
+    start,
+  ],
+};
+
+export function preferred(
+  platform: NodeJS.Platform = process.platform,
+): FolderDialog[] {
+  if (platform === "darwin") {
+    return [OSASCRIPT];
+  }
   const desktop = process.env.XDG_CURRENT_DESKTOP ?? "";
   return desktop.includes("KDE") ? [KDIALOG, ZENITY] : [ZENITY, KDIALOG];
 }
@@ -58,7 +77,7 @@ export async function chooseFolder(current: string): Promise<string | null> {
       new Response(child.stdout).text(),
       child.exited,
     ]);
-    const path = output.trim();
+    const path = output.trim().replace(/(?<=.)\/$/, "");
     return code === 0 && path ? path : null;
   } finally {
     open = false;

@@ -45,6 +45,7 @@ import { MoneroSync } from "./monero/sync.ts";
 import type { WalletBackend } from "./monero/wallet.ts";
 import { MoneroWallet } from "./monero/wallet.ts";
 import type { Paths } from "./paths.ts";
+import { openCommand } from "./platform.ts";
 import type { Presence } from "./presence.ts";
 import {
   baselineEnd,
@@ -128,7 +129,7 @@ export function createApp(dependencies: AppDependencies): Hono {
   const reveal =
     dependencies.reveal ??
     ((path: string) => {
-      Bun.spawn(["xdg-open", dirname(path)], {
+      Bun.spawn(openCommand(dirname(path)), {
         stdout: "ignore",
         stderr: "ignore",
       });

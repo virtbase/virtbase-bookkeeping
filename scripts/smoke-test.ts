@@ -1,8 +1,14 @@
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $ } from "bun";
-import { version } from "../package.json";
+import {
+  MONERO_VERSION,
+  moneroPlatformKey,
+} from "../src/server/monero/bundle.ts";
+import { PRODUCT } from "./packaging/product.ts";
+import type { PackageTarget } from "./packaging/targets.ts";
+import { TARGETS } from "./packaging/targets.ts";
 
 const START_TIMEOUT_MS = 10000;
 const packages = "dist/packages";
@@ -71,17 +77,34 @@ async function check(binary: string, home: string): Promise<void> {
   }
 }
 
-const deb = readdirSync(packages).find((file) =>
-  file.endsWith(`_${version.replace("-", "~")}_amd64.deb`),
-);
-if (!deb) {
-  fail(`no package for ${version} in ${packages}`);
+async function unpack(target: PackageTarget, work: string): Promise<string> {
+  const file = join(packages, target.fileName(PRODUCT, target));
+  if (target.format === "deb") {
+    await $`dpkg-deb -x ${file} ${work}`.quiet();
+    return join(work, "usr/bin", PRODUCT.id);
+  }
+  await $`tar -xzf ${file} -C ${work}`.quiet();
+  return join(work, PRODUCT.id, PRODUCT.id);
 }
-const work = mkdtempSync(join(tmpdir(), "bookkeeping-smoke-"));
-try {
-  await $`dpkg-deb -x ${join(packages, deb)} ${work}`.quiet();
-  await check(join(work, "usr/bin/virtbase-bookkeeping"), join(work, "home"));
-  console.log(`Smoke test passed for ${deb}.`);
-} finally {
-  rmSync(work, { recursive: true, force: true });
+
+const wallet = `vendor/monero/${moneroPlatformKey()}/monero-wallet-rpc`;
+const walletVersion = await $`${wallet} --version`.quiet().text();
+if (!walletVersion.includes(MONERO_VERSION)) {
+  fail(`wallet reports ${walletVersion.trim()}`);
+}
+
+const targets = TARGETS.filter(
+  (target) => target.platform === moneroPlatformKey(),
+);
+if (targets.length === 0) {
+  fail(`no package target for ${moneroPlatformKey()}`);
+}
+for (const target of targets) {
+  const work = mkdtempSync(join(tmpdir(), "bookkeeping-smoke-"));
+  try {
+    await check(await unpack(target, work), join(work, "home"));
+    console.log(`Smoke test passed for ${target.id}.`);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 }

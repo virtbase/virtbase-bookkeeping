@@ -14,8 +14,17 @@ updates:
       include: scope
     cooldown:
       default-days: 7
+    ignore:
+      - dependency-name: oxc-transform-react
     groups:
-      minor-and-patch:
+      dev-patch:
+        dependency-type: development
+        update-types: [patch]
+      dev-minor:
+        dependency-type: development
+        update-types: [minor]
+      production:
+        dependency-type: production
         update-types: [minor, patch]
 
   - package-ecosystem: github-actions

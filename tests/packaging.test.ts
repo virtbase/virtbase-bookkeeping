@@ -8,6 +8,12 @@ import {
 } from "../scripts/packaging/linux.ts";
 import { PRODUCT } from "../scripts/packaging/product.ts";
 import { TARGETS } from "../scripts/packaging/targets.ts";
+import { preferred } from "../src/server/folder-dialog.ts";
+import {
+  moneroPlatform,
+  moneroPlatformKey,
+} from "../src/server/monero/bundle.ts";
+import { openCommand } from "../src/server/platform.ts";
 
 const root = resolve(import.meta.dir, "..");
 
@@ -15,6 +21,44 @@ describe("targets", () => {
   test("have unique ids", () => {
     const ids = TARGETS.map((target) => target.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("platforms", () => {
+  test("every target has a verified Monero entry", () => {
+    for (const target of TARGETS) {
+      const { archiveSha256, walletRpcSha256 } = moneroPlatform(
+        target.platform,
+      );
+      expect(archiveSha256).toMatch(/^[0-9a-f]{64}$/);
+      expect(archiveSha256).not.toMatch(/^0+$/);
+      expect(walletRpcSha256).not.toMatch(/^0+$/);
+    }
+  });
+
+  test("names packages per architecture", () => {
+    const names = TARGETS.map((target) => target.fileName(PRODUCT, target));
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toContain(
+      `virtbase-bookkeeping_${PRODUCT.version}_arm64.deb`,
+    );
+    expect(names).toContain(
+      `virtbase-bookkeeping_${PRODUCT.version}_darwin-arm64.tar.gz`,
+    );
+  });
+
+  test("opens files with the system command", () => {
+    expect(openCommand("/tmp/a", "linux")).toEqual(["xdg-open", "/tmp/a"]);
+    expect(openCommand("/tmp/a", "darwin")).toEqual(["open", "/tmp/a"]);
+  });
+
+  test("uses the native folder dialog on macOS", () => {
+    expect(preferred("darwin").map((dialog) => dialog.command)).toEqual([
+      "osascript",
+    ]);
+    expect(preferred("linux").map((dialog) => dialog.command)).toContain(
+      "zenity",
+    );
   });
 });
 
@@ -54,7 +98,7 @@ describe("linux layout", () => {
   });
 
   test("lists the licenses of bundled software", () => {
-    const copyright = renderCopyright(PRODUCT, root);
+    const copyright = renderCopyright(PRODUCT, root, moneroPlatformKey());
     expect(copyright).toContain("MIT License");
     expect(copyright).toContain("Bun itself is MIT-licensed");
     expect(copyright).toContain("The Monero Project");

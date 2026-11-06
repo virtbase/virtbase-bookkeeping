@@ -1,6 +1,8 @@
 import { cpSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { $ } from "bun";
+import { moneroPlatformKey } from "../src/server/monero/bundle.ts";
+import { fetchMonero } from "./fetch-monero.ts";
 
 const web = "dist/web";
 const embed = "dist/embed";
@@ -10,8 +12,9 @@ export const DEFAULT_OUTFILE = "dist/virtbase-bookkeeping";
 export async function compileBinary(
   outfile: string,
   bunTarget?: string,
+  platform: string = moneroPlatformKey(),
 ): Promise<void> {
-  await $`bun scripts/fetch-monero.ts`;
+  const vendor = await fetchMonero(platform);
   await $`bunx vite build`;
 
   rmSync(embed, { recursive: true, force: true });
@@ -22,9 +25,7 @@ export async function compileBinary(
       join(web, "assets", file),
     ),
   ];
-  const vendored = readdirSync("vendor/monero").map((file) =>
-    join("vendor/monero", file),
-  );
+  const vendored = readdirSync(vendor).map((file) => join(vendor, file));
   const assets = [...files, ...vendored].map((file) => {
     const target = join(embed, `${basename(file)}.asset`);
     cpSync(file, target);

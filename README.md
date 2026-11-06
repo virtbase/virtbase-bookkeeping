@@ -18,7 +18,7 @@
   <a href="https://github.com/virtbase/virtbase-bookkeeping/actions/workflows/ci.yml"><img src="https://github.com/virtbase/virtbase-bookkeeping/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/runtime-Bun-black?logo=bun" alt="Runs on Bun">
-  <img src="https://img.shields.io/badge/platform-Linux%20x64-informational?logo=linux&logoColor=white" alt="Linux x64">
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS-informational" alt="Linux and macOS">
 </p>
 
 <p align="center">
@@ -81,6 +81,18 @@ The binary contains the web app and Monero. It needs no other files.
 
 ## Packages
 
+Every release on the [releases page](https://github.com/virtbase/virtbase-bookkeeping/releases) has these packages:
+
+| System                      | Package   |
+| --------------------------- | --------- |
+| Debian, Ubuntu (x64, ARM64) | `.deb`    |
+| Other Linux (x64, ARM64)    | `.tar.gz` |
+| macOS (Apple Silicon)       | `.tar.gz` |
+
+The macOS build is not notarized. After unpacking, run `xattr -d com.apple.quarantine virtbase-bookkeeping` once, or macOS blocks it.
+
+To verify a download, run `gh attestation verify <file> --repo virtbase/virtbase-bookkeeping`.
+
 ```bash
 bun run package:deb
 sudo apt install ./dist/packages/virtbase-bookkeeping_*_amd64.deb
@@ -88,7 +100,7 @@ sudo apt install ./dist/packages/virtbase-bookkeeping_*_amd64.deb
 
 This adds a menu entry and the `virtbase-bookkeeping` command. Install a newer package the same way to update. `sudo apt remove virtbase-bookkeeping` removes the app and leaves `~/Bookkeeping` alone.
 
-`bun run package` builds every target in [scripts/packaging/targets.ts](scripts/packaging/targets.ts). To add a target, add an entry there with its Bun target, architecture and build function. Product details live in [scripts/packaging/product.ts](scripts/packaging/product.ts). The version comes from `package.json`.
+`bun run package` builds every target for your own system from [scripts/packaging/targets.ts](scripts/packaging/targets.ts). Pass target ids to build others, such as `bun run package deb-arm64`. To add a target, add an entry there with its Bun target, architecture and build function. Product details live in [scripts/packaging/product.ts](scripts/packaging/product.ts). The version comes from `package.json`.
 
 Never run `strip` on the binary, it breaks the app. For this reason the package is built with `dpkg-deb` and not with debhelper.
 
@@ -202,6 +214,10 @@ To test without touching your real data, copy the database to the test home. If 
 ## Releases
 
 Releases come from commit messages. `feat:` raises the minor version and `fix:` the patch version, while the version is below 1.0. [release-please](https://github.com/googleapis/release-please) keeps a pull request open with the next version and changelog. Merging it creates the tag and the GitHub release, and CI attaches the `.deb` and its checksums.
+
+The release starts as a draft. Its packages are built on each system, smoke tested and attested, and the draft is published only when all of them passed.
+
+Dependabot opens update pull requests every Monday. Patch updates of development tools and GitHub Actions merge by themselves once the checks pass. Runtime packages and everything larger wait for a review.
 
 ## Monero updates
 

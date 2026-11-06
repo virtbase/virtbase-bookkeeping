@@ -41,7 +41,11 @@ export function renderDesktopEntry(product: Product): string {
   ].join("\n")}\n`;
 }
 
-export function renderCopyright(product: Product, root: string): string {
+export function renderCopyright(
+  product: Product,
+  root: string,
+  platform: string,
+): string {
   const read = (path: string) => readFileSync(join(root, path), "utf8").trim();
   return `${[
     product.title,
@@ -61,7 +65,7 @@ export function renderCopyright(product: Product, root: string): string {
     "",
     "=== Monero wallet RPC, https://github.com/monero-project/monero ===",
     "",
-    read("vendor/monero/LICENSE"),
+    read(`vendor/monero/${platform}/LICENSE`),
     "",
     "=== JavaScript packages ===",
     "",
@@ -74,6 +78,7 @@ export function stageLinuxApp(
   product: Product,
   binary: string,
   root: string,
+  platform: string,
 ): void {
   place(stage, `usr/bin/${product.id}`, { from: binary }, 0o755);
   place(
@@ -94,6 +99,6 @@ export function stageLinuxApp(
   place(
     stage,
     `usr/share/doc/${product.id}/copyright`,
-    renderCopyright(product, root),
+    renderCopyright(product, root, platform),
   );
 }

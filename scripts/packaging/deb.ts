@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { $ } from "bun";
 import { stageLinuxApp } from "./linux.ts";
 import type { Product } from "./product.ts";
-import type { PackageContext } from "./targets.ts";
+import type { PackageContext, PackageTarget } from "./targets.ts";
 
 const MINIMUM_GLIBC = "2.25";
 const DESCRIPTION_WIDTH = 78;
@@ -60,16 +60,17 @@ export function renderControl(
   ].join("\n")}\n`;
 }
 
+export function debFileName(product: Product, target: PackageTarget): string {
+  return `${product.id}_${debianVersion(product.version)}_${target.architecture}.deb`;
+}
+
 export async function buildDeb(context: PackageContext): Promise<string> {
   const { product, target, binary, outDir, root } = context;
   const stage = join(outDir, `.stage-${target.id}`);
-  const output = join(
-    outDir,
-    `${product.id}_${debianVersion(product.version)}_${target.architecture}.deb`,
-  );
+  const output = join(outDir, debFileName(product, target));
   rmSync(stage, { recursive: true, force: true });
   try {
-    stageLinuxApp(stage, product, binary, root);
+    stageLinuxApp(stage, product, binary, root, target.platform);
     const size = installedKilobytes(stage);
     mkdirSync(join(stage, "DEBIAN"));
     writeFileSync(

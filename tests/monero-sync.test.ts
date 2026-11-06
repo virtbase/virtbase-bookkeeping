@@ -10,7 +10,7 @@ import { exportRows, transactions } from "../src/server/db/schema.ts";
 import {
   ensureWalletRpc,
   MONERO_VERSION,
-  WALLET_RPC_SHA256,
+  moneroPlatform,
 } from "../src/server/monero/bundle.ts";
 import { parseMoneroCsv } from "../src/server/monero/csv.ts";
 import {
@@ -339,7 +339,7 @@ describe("bundled wallet program", () => {
     const hash = new Bun.CryptoHasher("sha256")
       .update(readFileSync(target))
       .digest("hex");
-    expect(hash).toBe(WALLET_RPC_SHA256);
+    expect(hash).toBe(moneroPlatform().walletRpcSha256);
   });
 });
 

@@ -8,6 +8,7 @@ import { openDatabase } from "./db/client.ts";
 import { claimInstance } from "./instance.ts";
 import { stopWalletProcesses } from "./monero/wallet.ts";
 import { resolvePaths } from "./paths.ts";
+import { openCommand } from "./platform.ts";
 import { createPresence } from "./presence.ts";
 import { SecretStore } from "./secrets.ts";
 import { createSessionState, randomToken } from "./security.ts";
@@ -86,7 +87,7 @@ const open = () => {
   session.bootstrapToken ??= randomToken();
   const url = `http://127.0.0.1:${session.port}/?token=${session.bootstrapToken}`;
   if (opensBrowser) {
-    Bun.spawn(["xdg-open", url], { stdout: "ignore", stderr: "ignore" });
+    Bun.spawn(openCommand(url), { stdout: "ignore", stderr: "ignore" });
   }
   return url;
 };

@@ -3,6 +3,8 @@
   "bootstrap-sha": "6978ed8be5b0465b803a63aa6ba3f95b658e95eb",
   "include-component-in-tag": false,
   "include-v-in-tag": true,
+  "draft": true,
+  "force-tag-creation": true,
   "bump-minor-pre-major": true,
   "changelog-sections": [
     { "type": "feat", "section": "Features" },

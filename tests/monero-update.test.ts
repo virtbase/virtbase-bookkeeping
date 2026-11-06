@@ -38,11 +38,15 @@ describe("findArchiveHash", () => {
   const signed = `## CLI\n${HASH_A}  monero-linux-x64-v0.18.5.4.tar.bz2\n${HASH_B}  monero-win-x64-v0.18.5.4.zip\n`;
 
   test("finds the Linux archive", () => {
-    expect(findArchiveHash(signed, "0.18.5.4")).toBe(HASH_A);
+    expect(findArchiveHash(signed, "monero-linux-x64", "0.18.5.4")).toBe(
+      HASH_A,
+    );
   });
 
   test("fails without an entry for the version", () => {
-    expect(() => findArchiveHash(signed, "0.18.5.5")).toThrow("No signed");
+    expect(() =>
+      findArchiveHash(signed, "monero-linux-x64", "0.18.5.5"),
+    ).toThrow("No signed");
   });
 });
 
@@ -69,22 +73,40 @@ describe("assertSignature", () => {
 
 describe("rewriteBundle", () => {
   const source = `export const MONERO_VERSION = "0.18.5.4";
-export const MONERO_ARCHIVE_SHA256 =
-  "${HASH_A}";
-export const WALLET_RPC_SHA256 =
-  "${HASH_A}";
+  "linux-x64": {
+    archive: "monero-linux-x64",
+    archiveSha256:
+      "${HASH_A}",
+    walletRpcSha256:
+      "${HASH_A}",
+  },
+  "darwin-arm64": {
+    archive: "monero-mac-armv8",
+    archiveSha256:
+      "${HASH_A}",
+    walletRpcSha256:
+      "${HASH_A}",
+  },
 `;
 
-  test("updates version and both hashes", () => {
-    const next = rewriteBundle(source, "0.18.6.0", HASH_B, "c".repeat(64));
+  test("updates the version and only the named platform", () => {
+    const next = rewriteBundle(source, "0.18.6.0", {
+      "darwin-arm64": {
+        archiveSha256: HASH_B,
+        walletRpcSha256: "c".repeat(64),
+      },
+    });
     expect(next).toContain('MONERO_VERSION = "0.18.6.0"');
-    expect(next).toContain(`MONERO_ARCHIVE_SHA256 =\n  "${HASH_B}"`);
-    expect(next).toContain(`WALLET_RPC_SHA256 =\n  "${"c".repeat(64)}"`);
+    expect(next).toContain(`archiveSha256:\n      "${HASH_B}"`);
+    expect(next).toContain(`walletRpcSha256:\n      "${"c".repeat(64)}"`);
+    expect(next.indexOf(HASH_A)).toBeLessThan(next.indexOf(HASH_B));
   });
 
-  test("fails when the file no longer matches", () => {
-    expect(() => rewriteBundle("nothing", "1", HASH_A, HASH_B)).toThrow(
-      "Could not update",
-    );
+  test("fails when a platform is missing", () => {
+    expect(() =>
+      rewriteBundle(source, "1", {
+        "win32-x64": { archiveSha256: HASH_A, walletRpcSha256: HASH_B },
+      }),
+    ).toThrow("Could not update");
   });
 });

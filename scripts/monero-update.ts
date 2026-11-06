@@ -10,6 +10,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $ } from "bun";
+import {
+  MONERO_PLATFORMS,
+  moneroPlatformKey,
+} from "../src/server/monero/bundle.ts";
+import { extractFromArchive } from "./fetch-monero.ts";
 
 export const SIGNING_KEY_FINGERPRINT =
   "81AC591FE9C4B65C5806AFC3F0AF4D462A0BDF92";
@@ -39,8 +44,12 @@ export function isNewerVersion(candidate: string, current: string): boolean {
   return false;
 }
 
-export function findArchiveHash(signedText: string, version: string): string {
-  const file = `monero-linux-x64-v${version}.tar.bz2`;
+export function findArchiveHash(
+  signedText: string,
+  archive: string,
+  version: string,
+): string {
+  const file = `${archive}-v${version}.tar.bz2`;
   const line = signedText
     .split("\n")
     .find((entry) => entry.trim().endsWith(`  ${file}`));
@@ -63,11 +72,15 @@ export function assertSignature(status: string): void {
   }
 }
 
+export interface PlatformHashes {
+  archiveSha256: string;
+  walletRpcSha256: string;
+}
+
 export function rewriteBundle(
   source: string,
   version: string,
-  archiveHash: string,
-  binaryHash: string,
+  platforms: Record<string, PlatformHashes>,
 ): string {
   const replace = (text: string, pattern: RegExp, value: string) => {
     if (!pattern.test(text)) {
@@ -75,21 +88,21 @@ export function rewriteBundle(
     }
     return text.replace(pattern, value);
   };
-  const withVersion = replace(
+  let next = replace(
     source,
     /MONERO_VERSION = "[^"]+"/,
     `MONERO_VERSION = "${version}"`,
   );
-  const withArchive = replace(
-    withVersion,
-    /(MONERO_ARCHIVE_SHA256 =\s*")[0-9a-f]{64}"/,
-    `$1${archiveHash}"`,
-  );
-  return replace(
-    withArchive,
-    /(WALLET_RPC_SHA256 =\s*")[0-9a-f]{64}"/,
-    `$1${binaryHash}"`,
-  );
+  for (const [key, hashes] of Object.entries(platforms)) {
+    next = replace(
+      next,
+      new RegExp(
+        `("${key}": \\{\\s*archive: "[^"]+",\\s*archiveSha256:\\s*")[0-9a-f]{64}("[,\\s]*walletRpcSha256:\\s*")[0-9a-f]{64}"`,
+      ),
+      `$1${hashes.archiveSha256}$2${hashes.walletRpcSha256}"`,
+    );
+  }
+  return next;
 }
 
 function sha256(data: Uint8Array): string {
@@ -133,27 +146,35 @@ async function verifiedHashes(work: string): Promise<string> {
 }
 
 async function verifiedBinaryHash(
-  work: string,
+  key: string,
+  archiveName: string,
   version: string,
   archiveHash: string,
 ): Promise<string> {
-  const archive = join(work, "monero.tar.bz2");
-  const url = `https://downloads.getmonero.org/cli/monero-linux-x64-v${version}.tar.bz2`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Monero download failed: ${response.status}`);
+  const work = mkdtempSync(join(tmpdir(), "monero-archive-"));
+  try {
+    const archive = join(work, "monero.tar.bz2");
+    const url = `https://downloads.getmonero.org/cli/${archiveName}-v${version}.tar.bz2`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Monero download failed for ${key}: ${response.status}`);
+    }
+    await Bun.write(archive, response);
+    if (sha256(readFileSync(archive)) !== archiveHash) {
+      throw new Error(`${key} archive does not match the signed checksum`);
+    }
+    await extractFromArchive(archive, work, ["monero-wallet-rpc"]);
+    const binary = join(work, "monero-wallet-rpc");
+    if (key === moneroPlatformKey()) {
+      const reported = await $`${binary} --version`.quiet().text();
+      if (!reported.includes(version)) {
+        throw new Error(`Unexpected wallet version: ${reported.trim()}`);
+      }
+    }
+    return sha256(readFileSync(binary));
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
-  await Bun.write(archive, response);
-  if (sha256(readFileSync(archive)) !== archiveHash) {
-    throw new Error("Monero archive does not match the signed checksum");
-  }
-  await $`tar -xjf ${archive} -C ${work} --strip-components=1 --wildcards ${"*/monero-wallet-rpc"}`.quiet();
-  const binary = join(work, "monero-wallet-rpc");
-  const reported = await $`${binary} --version`.quiet().text();
-  if (!reported.includes(version)) {
-    throw new Error(`Unexpected wallet version: ${reported.trim()}`);
-  }
-  return sha256(readFileSync(binary));
 }
 
 async function main(): Promise<void> {
@@ -168,12 +189,21 @@ async function main(): Promise<void> {
   }
   const work = mkdtempSync(join(tmpdir(), "monero-update-"));
   try {
-    const archiveHash = findArchiveHash(await verifiedHashes(work), latest);
-    const binaryHash = await verifiedBinaryHash(work, latest, archiveHash);
-    writeFileSync(
-      BUNDLE_FILE,
-      rewriteBundle(source, latest, archiveHash, binaryHash),
-    );
+    const signedText = await verifiedHashes(work);
+    const platforms: Record<string, PlatformHashes> = {};
+    for (const [key, { archive }] of Object.entries(MONERO_PLATFORMS)) {
+      const archiveSha256 = findArchiveHash(signedText, archive, latest);
+      platforms[key] = {
+        archiveSha256,
+        walletRpcSha256: await verifiedBinaryHash(
+          key,
+          archive,
+          latest,
+          archiveSha256,
+        ),
+      };
+    }
+    writeFileSync(BUNDLE_FILE, rewriteBundle(source, latest, platforms));
     console.log(`Verified Monero ${latest}.`);
     if (outputs) {
       appendFileSync(outputs, `version=${latest}\n`);
