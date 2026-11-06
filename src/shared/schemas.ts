@@ -169,6 +169,7 @@ export const preferencesSchema = z
     theme: z.enum(["light", "dark"]).nullable(),
     privacy: z.boolean(),
     tourPending: z.boolean(),
+    singleKeyShortcuts: z.boolean(),
   })
   .partial();
 

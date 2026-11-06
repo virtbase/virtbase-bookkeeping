@@ -42,6 +42,7 @@ import {
   useForm,
 } from "react-hook-form";
 import { toast } from "sonner";
+import { CopyButton } from "@/components/copy-button";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { HelpSheet } from "@/components/help-sheet";
 import { LexwareIcon, MoneroIcon, StripeIcon } from "@/components/icons";
@@ -50,6 +51,7 @@ import { MonthPicker } from "@/components/month-picker";
 import { Section } from "@/components/settings-section";
 import { StatusBadge } from "@/components/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -84,6 +86,7 @@ import { ApiError, api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
 import { countLabel, formatBytes, formatStamp } from "@/lib/format";
 import { usePreferences } from "@/lib/preferences";
+import { runShortcut, useShortcut } from "@/lib/shortcuts";
 import { DangerZone } from "@/pages/danger-zone";
 import { MoneroWalletSection, NodeList } from "@/pages/monero-settings";
 import { PurposeSheet } from "@/pages/purpose-sheet";
@@ -399,7 +402,7 @@ function GeneralForm({
   initial: SettingsDto;
   onChanged: () => Promise<void>;
 }) {
-  const { update } = usePreferences();
+  const { update, preferences } = usePreferences();
   const [picking, setPicking] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [placeholderKey, setPlaceholderKey] = useState<PurposeKey | null>(null);
@@ -432,6 +435,8 @@ function GeneralForm({
       }
     },
   );
+
+  useShortcut("save", () => void save());
 
   const savedCount = form.formState.submitCount;
   useEffect(() => {
@@ -523,6 +528,11 @@ function GeneralForm({
                     className="font-mono text-[13px]"
                   />
                   <InputGroupAddon align="inline-end">
+                    <CopyButton
+                      value={field.value}
+                      label="Exportordner kopieren"
+                      sensitive={false}
+                    />
                     <InputGroupButton
                       size="icon-xs"
                       aria-label="Ordner auswählen"
@@ -717,8 +727,29 @@ function GeneralForm({
         />
       </Section>
 
-      <Section title="Einführung" icon={GraduationCap}>
-        <div className="flex">
+      <Section title="Hilfe" icon={GraduationCap}>
+        <label
+          htmlFor="single-keys"
+          className="flex items-center gap-2 text-sm"
+        >
+          <Checkbox
+            id="single-keys"
+            checked={preferences.singleKeyShortcuts}
+            onCheckedChange={(checked) =>
+              update({ singleKeyShortcuts: checked === true })
+            }
+          />
+          Tastenkürzel aus einzelnen Tasten verwenden
+        </label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => runShortcut("help")}
+          >
+            Tastenkürzel anzeigen
+          </Button>
           <Button
             type="button"
             variant="outline"

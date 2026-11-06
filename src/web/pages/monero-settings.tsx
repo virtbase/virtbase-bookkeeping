@@ -9,6 +9,7 @@ import {
   useForm,
 } from "react-hook-form";
 import { toast } from "sonner";
+import { CopyButton } from "@/components/copy-button";
 import { HelpSheet } from "@/components/help-sheet";
 import { MoneroIcon } from "@/components/icons";
 import { LabelWithHelp } from "@/components/label-with-help";
@@ -37,7 +38,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { api } from "@/lib/api";
-import { formatStamp } from "@/lib/format";
+import { formatStamp, shortenMiddle } from "@/lib/format";
 
 interface NodeListProps {
   value: string[];
@@ -123,10 +124,6 @@ export function NodeList({ value, error, onChange, onBlur }: NodeListProps) {
       </div>
     </FieldGroup>
   );
-}
-
-function shortAddress(address: string): string {
-  return `${address.slice(0, 10)}…${address.slice(-10)}`;
 }
 
 function WalletForm({
@@ -294,7 +291,14 @@ export function MoneroWalletSection({
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
             <dt className="text-muted-foreground">Adresse</dt>
             <dd className="text-right font-mono text-[13px]">
-              {shortAddress(status.address ?? "")}
+              <span className="inline-flex items-center gap-1">
+                {shortenMiddle(status.address ?? "", 10, 10)}
+                <CopyButton
+                  value={status.address ?? ""}
+                  label="Adresse kopieren"
+                  sensitive={false}
+                />
+              </span>
             </dd>
             <dt className="text-muted-foreground">Letzte Synchronisierung</dt>
             <dd className="text-right tabular-nums">

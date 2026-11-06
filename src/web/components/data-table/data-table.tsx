@@ -14,7 +14,14 @@ import {
   ChevronsUpDown,
   ChevronUp,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { KeyHint } from "@/components/shortcut-hint";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -75,23 +82,80 @@ export function SortHeader<TData extends RowData>({
   );
 }
 
-const FLEXIBLE_COLUMN_WIDTH = 160;
+const FLEXIBLE_COLUMN_WIDTH = 140;
+const WIDE_LAYOUT = 768;
+const MIN_TABLE_HEIGHT = 240;
+const BOTTOM_SPACE = 120;
 
 interface DataTableProps<TData extends RowData> {
   table: TanstackTable<DataTableFeatures, TData>;
   empty: ReactNode;
   footer: ReactNode;
+  stickyHeader?: boolean;
+  onOpenRow?: (row: TData) => void;
 }
 
 export function DataTable<TData extends RowData>({
   table,
   empty,
   footer,
+  stickyHeader = false,
+  onOpenRow,
 }: DataTableProps<TData>) {
   "use no memo";
 
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [focused, setFocused] = useState(false);
+  const scroller = useRef<HTMLElement>(null);
+  const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!stickyHeader) {
+      return;
+    }
+    const measure = () => {
+      const top = scroller.current?.offsetTop ?? 0;
+      setMaxHeight(
+        window.innerWidth >= WIDE_LAYOUT
+          ? Math.max(MIN_TABLE_HEIGHT, window.innerHeight - top - BOTTOM_SPACE)
+          : undefined,
+      );
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  });
+
   const rows = table.getRowModel().rows;
   const { pageIndex, pageSize } = table.store.state.pagination;
+  const active = focused ? rows[activeIndex] : undefined;
+
+  const moveTo = (index: number) => {
+    const next = Math.min(Math.max(index, 0), rows.length - 1);
+    setActiveIndex(next);
+    scroller.current
+      ?.querySelector(`tbody tr:nth-child(${next + 1})`)
+      ?.scrollIntoView({ block: "nearest" });
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget || !onOpenRow) {
+      return;
+    }
+    if (event.key === "j" || event.key === "ArrowDown") {
+      moveTo(activeIndex + 1);
+    } else if (event.key === "k" || event.key === "ArrowUp") {
+      moveTo(activeIndex - 1);
+    } else if (event.key === "x" && active?.getCanSelect()) {
+      active.toggleSelected();
+    } else if (event.key === "Enter" && active) {
+      onOpenRow(active.original);
+    } else {
+      return;
+    }
+    event.preventDefault();
+  };
+
   const columns = table.getAllColumns();
   const columnCount = columns.length;
   const minWidth = columns.reduce(
@@ -101,9 +165,30 @@ export function DataTable<TData extends RowData>({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="relative overflow-x-auto rounded-md border">
+      <section
+        ref={scroller}
+        aria-label="Tabelle"
+        tabIndex={onOpenRow ? 0 : undefined}
+        className={cn(
+          "relative overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          stickyHeader && "md:overflow-y-auto",
+        )}
+        style={{ maxHeight }}
+        onKeyDown={onKeyDown}
+        onFocus={(event) => {
+          if (event.target === event.currentTarget) {
+            setFocused(true);
+          }
+        }}
+        onBlur={() => setFocused(false)}
+      >
         <Table className="table-fixed" style={{ minWidth }}>
-          <TableHeader>
+          <TableHeader
+            className={cn(
+              stickyHeader &&
+                "sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0",
+            )}
+          >
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
                 {group.headers.map((header) => (
@@ -129,6 +214,10 @@ export function DataTable<TData extends RowData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
+                  className={cn(
+                    row === active &&
+                      "shadow-[inset_2px_0_0_var(--foreground)]",
+                  )}
                 >
                   {row.getAllCells().map((cell) => (
                     <TableCell
@@ -155,9 +244,18 @@ export function DataTable<TData extends RowData>({
             )}
           </TableBody>
         </Table>
-      </div>
+      </section>
       <div className="flex flex-wrap items-center justify-between gap-4 px-1 text-muted-foreground text-sm">
-        <span>{footer}</span>
+        <span className="flex flex-wrap items-center gap-3">
+          {footer}
+          {focused && onOpenRow && (
+            <span className="flex items-center gap-1.5 text-xs">
+              <KeyHint keys={["J", "K"]} /> Zeile
+              <KeyHint keys={["X"]} /> Auswahl
+              <KeyHint keys={["Enter"]} /> Öffnen
+            </span>
+          )}
+        </span>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="whitespace-nowrap">Zeilen pro Seite</span>

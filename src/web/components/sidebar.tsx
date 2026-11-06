@@ -7,14 +7,17 @@ import {
   Cog,
   Eye,
   EyeOff,
+  Keyboard,
   List,
   Moon,
   ScrollText,
+  Search,
   Sun,
   TriangleAlert,
 } from "lucide-react";
 import { VirtbaseIcon } from "@/components/icons";
 import { Private } from "@/components/private";
+import { ShortcutHint } from "@/components/shortcut-hint";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -22,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { usePrivacy } from "@/lib/preferences";
+import { runShortcut } from "@/lib/shortcuts";
 import type { Route } from "@/lib/use-route";
 import { cn } from "@/lib/utils";
 import { version } from "../../../package.json";
@@ -69,6 +73,16 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
           )}
         </div>
       </div>
+      <button
+        type="button"
+        aria-label="Suche und Befehle"
+        className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-md border bg-transparent px-2 text-muted-foreground text-sm transition-colors hover:bg-muted"
+        onClick={() => runShortcut("palette")}
+      >
+        <Search className="size-3.5" aria-hidden="true" />
+        <span className="flex-1 text-left">Suchen</span>
+        <ShortcutHint id="palette" />
+      </button>
       <div className="flex flex-col gap-0.5">
         {ITEMS.map(({ route: target, label, icon: Icon }) => (
           <a
@@ -77,16 +91,20 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
             data-tour={`nav-${target}`}
             aria-current={route === target ? "page" : undefined}
             className={cn(
-              "flex h-9 items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted data-tour-active:bg-muted data-tour-active:font-medium data-tour-active:text-foreground",
+              "group/nav flex h-9 items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted data-tour-active:bg-muted data-tour-active:font-medium data-tour-active:text-foreground",
               route === target
                 ? "bg-muted font-medium"
                 : "text-muted-foreground",
             )}
           >
-            <Icon className="size-4" aria-hidden="true" />
-            <span className="flex-1">{label}</span>
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            <ShortcutHint
+              id={`go-${target}`}
+              className="-mx-1 hidden shrink-0 gap-0.5 group-hover/nav:inline-flex"
+            />
             {target === "transaktionen" && summary ? (
-              <span className="text-muted-foreground text-xs tabular-nums">
+              <span className="text-muted-foreground text-xs tabular-nums group-hover/nav:hidden">
                 {summary.openCount}
               </span>
             ) : null}
@@ -124,6 +142,22 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  aria-label="Tastenkürzel anzeigen"
+                  onClick={() => runShortcut("help")}
+                >
+                  <Keyboard />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="flex items-center gap-2">
+                Tastenkürzel
+                <ShortcutHint id="help" />
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   data-tour="privacy"
                   className="data-tour-active:bg-muted"
                   aria-label="Privatmodus"
@@ -133,8 +167,9 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
                   {privacy.enabled ? <EyeOff /> : <Eye />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                Privatmodus {privacy.enabled ? "aus" : "ein"} (Alt+P)
+              <TooltipContent className="flex items-center gap-2">
+                Privatmodus {privacy.enabled ? "aus" : "ein"}
+                <ShortcutHint id="privacy" />
               </TooltipContent>
             </Tooltip>
             <Button

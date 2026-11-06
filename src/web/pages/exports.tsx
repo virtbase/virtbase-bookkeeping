@@ -8,10 +8,11 @@ import {
 import {
   Ban,
   CircleCheck,
+  Copy,
   Ellipsis,
   FileDown,
   FolderOpen,
-  Search,
+  Hash,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,6 +21,7 @@ import { type AppColumn, DataTable } from "@/components/data-table/data-table";
 import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { SearchInput } from "@/components/data-table/search-input";
 import { Private } from "@/components/private";
 import { StatusBadge, type Tone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +37,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { copyText } from "@/lib/copy";
 import {
   BATCH_STATUS_LABELS,
   EMPTY_EXPORT_FILTER,
@@ -53,12 +56,21 @@ import {
   formatIsoDay,
   formatStamp,
 } from "@/lib/format";
+import { useSessionState } from "@/lib/use-session-state";
 
 const STATUS_TONES: Record<BatchStatus, Tone> = {
   pending: "amber",
   imported: "blue",
   void: "neutral",
 };
+
+async function copyWithToast(value: string, message: string): Promise<void> {
+  if (await copyText(value)) {
+    toast(message);
+  } else {
+    toast.error("Kopieren nicht möglich.");
+  }
+}
 
 export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
   const [data, setData] = useState<ExportsDto | null>(null);
@@ -68,7 +80,10 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
     pageSize: 25,
   });
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [filter, setFilter] = useState(EMPTY_EXPORT_FILTER);
+  const [filter, setFilter] = useSessionState(
+    "exports.filter",
+    EMPTY_EXPORT_FILTER,
+  );
 
   const load = useCallback(async () => {
     setData(await api.exports());
@@ -207,18 +222,37 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {batch.status === "pending" && (
-                  <DropdownMenuItem
-                    onClick={() => void run(() => api.markImported(batch.id))}
-                  >
-                    <CircleCheck />
-                    In Lexware importiert
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => void run(() => api.markImported(batch.id))}
+                    >
+                      <CircleCheck />
+                      In Lexware importiert
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
                 )}
                 <DropdownMenuItem
                   onClick={() => void run(() => api.revealExport(batch.id))}
                 >
                   <FolderOpen />
                   Datei im Ordner zeigen
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    void copyWithToast(batch.filePath, "Dateipfad kopiert.")
+                  }
+                >
+                  <Copy />
+                  Dateipfad kopieren
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    void copyWithToast(batch.sha256, "SHA-256 kopiert.")
+                  }
+                >
+                  <Hash />
+                  SHA-256 kopieren
                 </DropdownMenuItem>
                 {batch.status !== "void" && (
                   <DropdownMenuItem onClick={() => void regenerate(batch)}>
@@ -227,13 +261,16 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
                   </DropdownMenuItem>
                 )}
                 {batch.status !== "void" && (
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setVoiding(batch)}
-                  >
-                    <Ban />
-                    Stornieren
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setVoiding(batch)}
+                    >
+                      <Ban />
+                      Stornieren
+                    </DropdownMenuItem>
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -266,19 +303,11 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
   return (
     <>
       <div className="flex min-h-8 shrink-0 flex-wrap items-center gap-2">
-        <div className="relative">
-          <Search
-            className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            aria-label="Exporte suchen"
-            placeholder="Suchen..."
-            className="h-8 w-56 pl-8"
-            value={filter.search}
-            onChange={(event) => update({ search: event.target.value })}
-          />
-        </div>
+        <SearchInput
+          label="Exporte suchen"
+          value={filter.search}
+          onChange={(search) => update({ search })}
+        />
         <FacetedFilter
           title="Konto"
           selected={filter.accounts}

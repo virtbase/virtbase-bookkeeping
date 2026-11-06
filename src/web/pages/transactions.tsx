@@ -1,5 +1,6 @@
-import { formatEuro, formatSignedEuro } from "@shared/money.ts";
+import { formatEuro, formatSignedEuro, plainAmount } from "@shared/money.ts";
 import type {
+  BatchDto,
   OpenFeeMonthDto,
   Source,
   SummaryDto,
@@ -20,12 +21,12 @@ import {
   EyeOff,
   PanelRightOpen,
   RefreshCw,
-  Search,
   Upload,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { CopyButton } from "@/components/copy-button";
 import {
   type AppColumn,
   DataTable,
@@ -33,7 +34,9 @@ import {
 } from "@/components/data-table/data-table";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { SearchInput } from "@/components/data-table/search-input";
 import { Private } from "@/components/private";
+import { ShortcutHint } from "@/components/shortcut-hint";
 import { StatusBadge, type Tone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,13 +46,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { countLabel, formatMonth, formatStamp, rowLabel } from "@/lib/format";
+import { usePageActions } from "@/lib/page-actions";
 import { usePrivacy } from "@/lib/preferences";
 import { selectedVisibleRows } from "@/lib/selection";
+import { useShortcut } from "@/lib/shortcuts";
 import { SOURCES } from "@/lib/sources";
+import { useSessionState } from "@/lib/use-session-state";
 import { ExportDialog } from "@/pages/export-dialog";
 import { TransactionSheet } from "@/pages/transaction-sheet";
 
@@ -69,6 +74,7 @@ const RANGES = [
 type Range = (typeof RANGES)[number];
 
 const DEFAULT_STATUSES: TransactionStatus[] = ["ready", "review"];
+const HOVER_COPY = "opacity-0 group-hover/row:opacity-100";
 const MONERO_POLL_MS = 2000;
 
 function rangeFilter(
@@ -110,11 +116,19 @@ export function TransactionsPage({
   onChanged,
 }: TransactionsPageProps) {
   const [rows, setRows] = useState<TransactionDto[] | null>(null);
-  const [search, setSearch] = useState("");
-  const [statuses, setStatuses] =
-    useState<TransactionStatus[]>(DEFAULT_STATUSES);
-  const [sources, setSources] = useState<Source[]>([]);
-  const [range, setRange] = useState<Range>("Seit letztem Export");
+  const [search, setSearch] = useSessionState("transactions.search", "");
+  const [statuses, setStatuses] = useSessionState<TransactionStatus[]>(
+    "transactions.statuses",
+    DEFAULT_STATUSES,
+  );
+  const [sources, setSources] = useSessionState<Source[]>(
+    "transactions.sources",
+    [],
+  );
+  const [range, setRange] = useSessionState<Range>(
+    "transactions.range",
+    "Seit letztem Export",
+  );
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [sorting, setSorting] = useState<SortingState>([
     { id: "occurredAt", desc: true },
@@ -128,6 +142,8 @@ export function TransactionsPage({
   const seen = useRef(new Set<string>());
   const fileInput = useRef<HTMLInputElement>(null);
   const autoSynced = useRef(false);
+  const lastToggled = useRef<string | null>(null);
+  const exportedIds = useRef<string[]>([]);
 
   const load = useCallback(async () => {
     const next = await api.transactions();
@@ -282,18 +298,41 @@ export function TransactionsPage({
             }
           />
         ),
-        cell: ({ row }) => (
+        cell: ({ row, table }) => (
           <Checkbox
             aria-label="Zeile auswählen"
             checked={row.getIsSelected()}
             disabled={!row.getCanSelect()}
-            onCheckedChange={(value) => row.toggleSelected(value === true)}
+            onCheckedChange={(value) => {
+              lastToggled.current = row.id;
+              row.toggleSelected(value === true);
+            }}
+            onClick={(event) => {
+              if (event.shiftKey && lastToggled.current) {
+                event.preventDefault();
+                const rows = table.getRowModel().rows;
+                const from = rows.findIndex(
+                  (entry) => entry.id === lastToggled.current,
+                );
+                const to = rows.findIndex((entry) => entry.id === row.id);
+                setRowSelection((selection) => ({
+                  ...selection,
+                  ...Object.fromEntries(
+                    rows
+                      .slice(Math.min(from, to), Math.max(from, to) + 1)
+                      .filter((entry) => entry.getCanSelect())
+                      .map((entry) => [entry.id, true]),
+                  ),
+                }));
+                lastToggled.current = row.id;
+              }
+            }}
           />
         ),
       },
       {
         accessorKey: "occurredAt",
-        size: 150,
+        size: 140,
         header: ({ column }) => <SortHeader column={column} label="Datum" />,
         cell: ({ row }) => (
           <span className="text-muted-foreground tabular-nums">
@@ -318,20 +357,29 @@ export function TransactionsPage({
       },
       {
         accessorKey: "name",
-        size: 260,
+        size: 272,
         header: ({ column }) => <SortHeader column={column} label="Name" />,
         cell: ({ row }) => (
-          <button
-            type="button"
-            className={
-              row.original.name
-                ? "max-w-full truncate hover:underline"
-                : "text-status-amber-foreground hover:underline"
-            }
-            onClick={() => setOpenId(row.original.id)}
-          >
-            {row.original.name ? mask(row.original.name) : "Name fehlt"}
-          </button>
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              className={
+                row.original.name
+                  ? "min-w-0 truncate hover:underline"
+                  : "text-status-amber-foreground hover:underline"
+              }
+              onClick={() => setOpenId(row.original.id)}
+            >
+              {row.original.name ? mask(row.original.name) : "Name fehlt"}
+            </button>
+            {row.original.name && (
+              <CopyButton
+                value={row.original.name}
+                label="Name kopieren"
+                className={HOVER_COPY}
+              />
+            )}
+          </div>
         ),
       },
       {
@@ -340,12 +388,19 @@ export function TransactionsPage({
         enableSorting: false,
         header: "Verwendungszweck",
         cell: ({ row }) => (
-          <span
-            className="text-muted-foreground"
-            title={mask(row.original.purpose)}
-          >
-            <Private>{row.original.purpose}</Private>
-          </span>
+          <div className="flex min-w-0 items-center gap-1">
+            <span
+              className="min-w-0 truncate text-muted-foreground"
+              title={mask(row.original.purpose)}
+            >
+              <Private>{row.original.purpose}</Private>
+            </span>
+            <CopyButton
+              value={row.original.purpose}
+              label="Verwendungszweck kopieren"
+              className={HOVER_COPY}
+            />
+          </div>
         ),
       },
       {
@@ -355,7 +410,12 @@ export function TransactionsPage({
           <SortHeader column={column} label="Betrag" align="right" />
         ),
         cell: ({ row }) => (
-          <div className="text-right font-mono text-[13px] tabular-nums">
+          <div className="flex items-center justify-end gap-1 font-mono text-[13px] tabular-nums">
+            <CopyButton
+              value={plainAmount(row.original.amountCents)}
+              label="Betrag kopieren"
+              className={HOVER_COPY}
+            />
             <Private>{formatSignedEuro(row.original.amountCents)}</Private>
           </div>
         ),
@@ -454,9 +514,10 @@ export function TransactionsPage({
     setRange("Seit letztem Export");
   };
 
-  const undoExport = async (batchIds: number[], ids: string[]) => {
+  const undoExport = async (batches: BatchDto[]) => {
+    const ids = exportedIds.current;
     try {
-      await Promise.all(batchIds.map((id) => api.voidExport(id)));
+      await Promise.all(batches.map((batch) => api.voidExport(batch.id)));
       await Promise.all([load(), onChanged()]);
       setRowSelection((selection) => ({
         ...selection,
@@ -470,23 +531,38 @@ export function TransactionsPage({
   const exportSelected = async () => {
     const ids = selected.map((row) => row.id);
     const batches = await api.createExport(ids);
-    setDialogOpen(false);
+    exportedIds.current = ids;
     await Promise.all([load(), onChanged()]);
-    toast(`${countLabel(batches.length, "Datei", "Dateien")} gespeichert.`, {
-      description: batches
-        .map((batch) => `${batch.account}: ${rowLabel(batch.rowCount)}`)
-        .join(", "),
-      duration: 10000,
-      action: {
-        label: "Rückgängig",
-        onClick: () =>
-          void undoExport(
-            batches.map((batch) => batch.id),
-            ids,
-          ),
-      },
-    });
+    return batches;
   };
+
+  useShortcut("sync", () => void sync(false));
+
+  usePageActions((action) => {
+    if (action.type === "open") {
+      setOpenId(action.id);
+    } else {
+      void sync(false);
+    }
+  });
+
+  const pageRows = table.getRowModel().rows;
+  const pageIds = pageRows.map((row) => row.id);
+  const openIndex = openId ? pageIds.indexOf(openId) : -1;
+  const previousId = openIndex > 0 ? pageIds[openIndex - 1] : undefined;
+  const nextId =
+    openIndex >= 0 && openIndex < pageIds.length - 1
+      ? pageIds[openIndex + 1]
+      : undefined;
+  const reviewIds = pageRows
+    .filter((row) => row.original.status === "review")
+    .map((row) => row.id);
+  const nextReviewId = () =>
+    pageIds
+      .slice(openIndex + 1)
+      .find((id) => id !== openId && reviewIds.includes(id)) ??
+    reviewIds.find((id) => id !== openId) ??
+    null;
 
   return (
     <>
@@ -508,19 +584,11 @@ export function TransactionsPage({
         data-tour="toolbar"
         className="flex shrink-0 flex-wrap items-center gap-2"
       >
-        <div className="relative">
-          <Search
-            className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            aria-label="Transaktionen suchen"
-            placeholder="Suchen..."
-            className="h-8 w-56 pl-8"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          label="Transaktionen suchen"
+          value={search}
+          onChange={setSearch}
+        />
         <FacetedFilter
           title="Status"
           selected={statuses}
@@ -603,12 +671,15 @@ export function TransactionsPage({
               className={syncing || moneroRunning ? "animate-spin" : undefined}
             />
             Aktualisieren
+            <ShortcutHint id="sync" />
           </Button>
         </div>
       </div>
 
       <DataTable
         table={table}
+        stickyHeader
+        onOpenRow={(row) => setOpenId(row.id)}
         footer={`${selected.length} von ${rowLabel(visible.length)} ausgewählt`}
         empty={
           rows === null ? (
@@ -668,6 +739,8 @@ export function TransactionsPage({
         rows={selected}
         onOpenChange={setDialogOpen}
         onConfirm={exportSelected}
+        onUndo={undoExport}
+        onImported={onChanged}
       />
       <TransactionSheet
         row={openRow}
@@ -675,8 +748,11 @@ export function TransactionsPage({
         onToggleIgnored={(row) =>
           void setIgnored([row.id], row.status !== "ignored")
         }
+        onPrevious={previousId ? () => setOpenId(previousId) : undefined}
+        onNext={nextId ? () => setOpenId(nextId) : undefined}
+        reviewLeft={reviewIds.length}
         onSaved={async () => {
-          setOpenId(null);
+          setOpenId(nextReviewId());
           await Promise.all([load(), onChanged()]);
         }}
       />

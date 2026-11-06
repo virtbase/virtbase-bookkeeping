@@ -8,7 +8,12 @@ export function formatEuro(cents: number): string {
 }
 
 export function formatSignedEuro(cents: number): string {
-  return `${cents < 0 ? "−" : "+"}${formatEuro(cents)}`;
+  const sign = cents < 0 ? "−" : cents > 0 ? "+" : "";
+  return `${sign}${formatEuro(cents)}`;
+}
+
+export function plainAmount(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",");
 }
 
 export function formatPlainGerman(cents: number): string {

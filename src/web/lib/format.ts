@@ -36,6 +36,12 @@ export function formatMonth(month: string): string {
   return monthFormat.format(new Date(`${month}-01T00:00:00Z`));
 }
 
+export function shortenMiddle(text: string, head = 12, tail = 8): string {
+  return text.length > head + tail + 1
+    ? `${text.slice(0, head)}…${text.slice(-tail)}`
+    : text;
+}
+
 export function formatBytes(bytes: number): string {
   const megabytes = bytes / 1048576;
   return `${megabytes.toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`;

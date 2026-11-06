@@ -208,15 +208,10 @@ export const PERIOD_UNITS: Record<Granularity, string> = {
 
 interface RevenueChartProps {
   statistics: Statistics;
-  granularity: Granularity;
   title: string;
 }
 
-export function RevenueChart({
-  statistics,
-  granularity,
-  title,
-}: RevenueChartProps) {
+export function RevenueChart({ statistics, title }: RevenueChartProps) {
   const { allGroups, buckets, groups, forecast } = statistics;
   const { mask } = usePrivacy();
   const keys = groups.map((group) => seriesKey(allGroups, group.name));
@@ -261,11 +256,7 @@ export function RevenueChart({
           ]}
         />
       }
-      footer={
-        forecast
-          ? `Graue Balken zeigen die Prognose: lineare Trendlinie über die letzten ${forecast.basis} abgeschlossenen ${PERIOD_UNITS[granularity]}. Im laufenden Zeitraum füllt der graue Teil bis zur Prognose auf.`
-          : NO_FORECAST
-      }
+      footer={forecast ? undefined : NO_FORECAST}
     >
       <ChartContainer config={config} className="aspect-auto h-72 w-full">
         <ComposedChart

@@ -70,6 +70,7 @@ export interface PreferencesDto {
   theme: "light" | "dark" | null;
   privacy: boolean;
   tourPending: boolean;
+  singleKeyShortcuts: boolean;
 }
 
 export interface BackupStatusDto {

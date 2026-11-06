@@ -465,7 +465,6 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
 
       <RevenueChart
         statistics={statistics}
-        granularity={granularity}
         title={
           groupBy === "source" ? "Umsatz nach Quelle" : "Umsatz nach Konto"
         }

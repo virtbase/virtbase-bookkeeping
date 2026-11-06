@@ -79,6 +79,7 @@ export function readPreferences(db: Db): PreferencesDto {
     theme: null,
     privacy: false,
     tourPending: false,
+    singleKeyShortcuts: true,
     ...(stored ? (JSON.parse(stored) as Partial<PreferencesDto>) : {}),
   };
 }

@@ -110,6 +110,12 @@ When a month is over and its fee rows are not exported yet, Transaktionen shows 
 
 The app asks GitHub once a day for the latest release and shows a link in the sidebar when a newer version exists. It sends no data of yours. The source is `RELEASES_API` in `src/server/constants.ts`, and it must be readable without a login. A private repository looks like "no release", so no hint appears.
 
+## Keyboard
+
+`Ctrl+K` opens the search for pages, actions, transactions and exports. In privacy mode, results stay masked. `?` lists every shortcut, and hints appear next to the search fields and in tooltips.
+
+Shortcuts made of single keys, like `/`, `r` or `g e`, can be turned off under **Einstellungen**. Table keys work only while the table has focus. Filters stay in place when you switch pages, until the tab is closed.
+
 ## Statistics
 
 The Statistiken tab charts gross revenue by source or Lexware account, revenue by product and Stripe and PayPal fees. Payments and refunds count as revenue, payouts do not. Hidden rows and Monero payments still waiting for review are left out. Revenue counts on its German calendar day. Fees count on their UTC day, so a month of fees matches the Stripe invoice and the PayPal statement.

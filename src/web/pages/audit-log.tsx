@@ -11,7 +11,7 @@ import {
   type SortingState,
   useTable,
 } from "@tanstack/react-table";
-import { Download, Search, X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -21,17 +21,18 @@ import {
 } from "@/components/data-table/data-table";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { SearchInput } from "@/components/data-table/search-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { downloadFile } from "@/lib/download";
 import { countLabel } from "@/lib/format";
+import { useSessionState } from "@/lib/use-session-state";
 
 export function AuditLogPage() {
   const [events, setEvents] = useState<AuditEventDto[] | null>(null);
-  const [search, setSearch] = useState("");
-  const [types, setTypes] = useState<string[]>([]);
+  const [search, setSearch] = useSessionState("audit.search", "");
+  const [types, setTypes] = useSessionState<string[]>("audit.types", []);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [sorting, setSorting] = useState<SortingState>([
     { id: "at", desc: true },
@@ -165,19 +166,11 @@ export function AuditLogPage() {
   return (
     <>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <div className="relative">
-          <Search
-            className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            aria-label="Audit-Log durchsuchen"
-            placeholder="Suchen..."
-            className="h-8 w-56 pl-8"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          label="Audit-Log durchsuchen"
+          value={search}
+          onChange={setSearch}
+        />
         <FacetedFilter
           title="Ereignis"
           selected={types}

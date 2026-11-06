@@ -4,6 +4,7 @@ import {
   formatEuro,
   formatSignedEuro,
   parseEuroInput,
+  plainAmount,
 } from "@shared/money.ts";
 import {
   type MoneroForm,
@@ -11,8 +12,10 @@ import {
   nameFormSchema,
 } from "@shared/schemas.ts";
 import type { InvoiceLookupDto, TransactionDto } from "@shared/types.ts";
-import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -39,61 +42,121 @@ interface TransactionSheetProps {
   onClose: () => void;
   onSaved: () => Promise<void>;
   onToggleIgnored: (row: TransactionDto) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  reviewLeft: number;
 }
+
+const KEPT_END = 8;
 
 function germanNumber(value: number): string {
   return value.toFixed(2).replace(".", ",");
 }
 
-function facts(row: TransactionDto): [string, string][] {
+interface Fact {
+  label: string;
+  value: string;
+  copy?: string;
+  id?: boolean;
+}
+
+function submitOnCtrlEnter(event: KeyboardEvent<HTMLFormElement>): void {
+  if (event.ctrlKey && event.key === "Enter") {
+    event.preventDefault();
+    event.currentTarget.requestSubmit();
+  }
+}
+
+function amountFact(label: string, text: string, cents: number): Fact {
+  return {
+    label,
+    value: text,
+    copy: plainAmount(cents),
+  };
+}
+
+function feeFact(label: string, cents: number): Fact {
+  const text = cents === 0 ? formatEuro(0) : `−${formatEuro(cents)}`;
+  return amountFact(label, text, -cents);
+}
+
+function facts(row: TransactionDto): Fact[] {
   if (row.source === "monero") {
+    const received = row.xmrAtomic ? atomicToXmr(row.xmrAtomic) : null;
+    const transaction = row.id.split(":")[1] ?? row.id;
     return [
-      ["Erhalten", row.xmrAtomic ? `${atomicToXmr(row.xmrAtomic)} XMR` : "—"],
-      [
-        "Kurs",
-        row.xmrRate
+      {
+        label: "Erhalten",
+        value: received ? `${received} XMR` : "—",
+        copy: received ?? undefined,
+      },
+      {
+        label: "Kurs",
+        value: row.xmrRate
           ? `${formatEuro(Math.round(row.xmrRate * 100))} (${row.rateSource})`
           : "—",
-      ],
-      [
-        "Marktwert",
-        row.marketValueCents === null ? "—" : formatEuro(row.marketValueCents),
-      ],
+      },
+      row.marketValueCents === null
+        ? { label: "Marktwert", value: "—" }
+        : amountFact(
+            "Marktwert",
+            formatEuro(row.marketValueCents),
+            row.marketValueCents,
+          ),
       ...(row.walletLabel
-        ? ([["Wallet-Label", row.walletLabel]] as [string, string][])
+        ? [{ label: "Wallet-Label", value: row.walletLabel }]
         : []),
+      { label: "Transaktion", value: transaction, copy: transaction, id: true },
     ];
   }
   if (row.source === "fees") {
     return [
-      ["Betrag", formatSignedEuro(row.amountCents)],
-      ["Berechnet aus", row.method ?? "—"],
-      ["Stripe-Feld", row.kind],
+      amountFact("Betrag", formatSignedEuro(row.amountCents), row.amountCents),
+      { label: "Berechnet aus", value: row.method ?? "—" },
+      { label: "Stripe-Feld", value: row.kind },
     ];
   }
+  const net = row.amountCents - row.stripeFeeCents - row.passthroughFeeCents;
+  const valueDay = formatDay(row.valueAt);
   return [
-    ["Zahlungsart", row.method ?? "—"],
-    ["Brutto", formatSignedEuro(row.amountCents)],
-    ["Stripe-Gebühr", `−${formatEuro(row.stripeFeeCents)}`],
-    ["PayPal-Gebühr", `−${formatEuro(row.passthroughFeeCents)}`],
-    [
-      "Netto",
-      formatSignedEuro(
-        row.amountCents - row.stripeFeeCents - row.passthroughFeeCents,
-      ),
-    ],
-    ["Wertstellung", formatDay(row.valueAt)],
-    ["Stripe-ID", row.id],
+    { label: "Zahlungsart", value: row.method ?? "—" },
+    amountFact("Brutto", formatSignedEuro(row.amountCents), row.amountCents),
+    feeFact("Stripe-Gebühr", row.stripeFeeCents),
+    feeFact("PayPal-Gebühr", row.passthroughFeeCents),
+    amountFact("Netto", formatSignedEuro(net), net),
+    { label: "Wertstellung", value: valueDay, copy: valueDay },
+    { label: "Stripe-ID", value: row.id, copy: row.id, id: true },
   ];
+}
+
+function MiddleTruncated({ value }: { value: string }) {
+  return (
+    <span title={value} className="flex min-w-0">
+      <span className="min-w-0 truncate">{value.slice(0, -KEPT_END)}</span>
+      <span className="shrink-0">{value.slice(-KEPT_END)}</span>
+    </span>
+  );
 }
 
 function Facts({ row }: { row: TransactionDto }) {
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 border-t pt-3">
-      {facts(row).map(([label, value]) => (
+      {facts(row).map(({ label, value, copy, id }) => (
         <div key={label} className="contents">
           <dt className="text-muted-foreground">{label}</dt>
-          <dd className="wrap-anywhere text-right tabular-nums">{value}</dd>
+          <dd className="flex items-start justify-end gap-1 text-right tabular-nums">
+            {id ? (
+              <MiddleTruncated value={value} />
+            ) : (
+              <span className="wrap-anywhere min-w-0">{value}</span>
+            )}
+            <CopyButton
+              value={copy ?? value}
+              label={`${label} kopieren`}
+              sensitive={false}
+              className="-my-0.5"
+            />
+          </dd>
         </div>
       ))}
     </dl>
@@ -123,7 +186,12 @@ function NameForm({
   });
 
   return (
-    <form onSubmit={save} noValidate className="flex flex-1 flex-col gap-4">
+    <form
+      onSubmit={save}
+      onKeyDown={submitOnCtrlEnter}
+      noValidate
+      className="flex flex-1 flex-col gap-4"
+    >
       <Controller
         control={form.control}
         name="name"
@@ -223,7 +291,12 @@ function MoneroEditForm({
   };
 
   return (
-    <form onSubmit={save} noValidate className="flex flex-1 flex-col gap-4">
+    <form
+      onSubmit={save}
+      onKeyDown={submitOnCtrlEnter}
+      noValidate
+      className="flex flex-1 flex-col gap-4"
+    >
       <div className="flex flex-col gap-1.5">
         <div className="font-medium">Passende Rechnungen in Lexware</div>
         {lookupError && <FieldError>{lookupError}</FieldError>}
@@ -352,6 +425,9 @@ export function TransactionSheet({
   onClose,
   onSaved,
   onToggleIgnored,
+  onPrevious,
+  onNext,
+  reviewLeft,
 }: TransactionSheetProps) {
   const editable = row?.status === "review";
   const isMonero = row?.source === "monero";
@@ -368,7 +444,44 @@ export function TransactionSheet({
         }
       }}
     >
-      <SheetContent className="gap-4 overflow-y-auto p-5 sm:max-w-md">
+      <SheetContent
+        className="gap-4 overflow-y-auto p-5 sm:max-w-md"
+        onKeyDown={(event) => {
+          if (event.altKey && event.key === "ArrowUp") {
+            event.preventDefault();
+            onPrevious?.();
+          }
+          if (event.altKey && event.key === "ArrowDown") {
+            event.preventDefault();
+            onNext?.();
+          }
+        }}
+      >
+        <div className="flex items-center gap-1 pr-7">
+          <Button
+            variant="outline"
+            size="icon-xs"
+            aria-label="Vorherige Zeile"
+            disabled={!onPrevious}
+            onClick={onPrevious}
+          >
+            <ChevronUp />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-xs"
+            aria-label="Nächste Zeile"
+            disabled={!onNext}
+            onClick={onNext}
+          >
+            <ChevronDown />
+          </Button>
+          {reviewLeft > 0 && (
+            <span className="ml-2 text-muted-foreground text-xs">
+              Noch {reviewLeft} zu prüfen
+            </span>
+          )}
+        </div>
         {row && hidden && (
           <>
             <SheetHeader className="p-0">

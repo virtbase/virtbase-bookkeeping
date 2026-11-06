@@ -224,6 +224,7 @@ describe("preferences", () => {
       theme: null,
       privacy: false,
       tourPending: false,
+      singleKeyShortcuts: true,
     });
   });
 
@@ -235,6 +236,7 @@ describe("preferences", () => {
       theme: "dark",
       privacy: true,
       tourPending: false,
+      singleKeyShortcuts: true,
     });
   });
 

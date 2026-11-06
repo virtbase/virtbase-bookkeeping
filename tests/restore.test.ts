@@ -169,6 +169,7 @@ describe("restoreBackup", () => {
         theme: "dark",
         privacy: true,
         tourPending: true,
+        singleKeyShortcuts: false,
       });
     });
     restoreBackup(db, paths, file, NOW);
@@ -176,6 +177,7 @@ describe("restoreBackup", () => {
       theme: "dark",
       privacy: true,
       tourPending: false,
+      singleKeyShortcuts: false,
     });
   });
 

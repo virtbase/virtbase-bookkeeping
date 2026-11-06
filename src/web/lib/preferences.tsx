@@ -55,17 +55,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     update({ privacy: !privacy });
   }, [privacy, update]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.altKey && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-        togglePrivacy();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [togglePrivacy]);
-
   const value = useMemo(
     () =>
       preferences && {
