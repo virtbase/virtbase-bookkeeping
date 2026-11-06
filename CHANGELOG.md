@@ -1,0 +1,19 @@
+# Changelog
+
+## [0.4.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.3.0...v0.4.0) (2026-11-06)
+
+
+### Features
+
+* improve ci pipeline with smoke tests and monero cli updates ([949c972](https://github.com/virtbase/virtbase-bookkeeping/commit/949c97282e2f11049994c41f7d1690f02d390b71))
+* setup project tooling for public ([bcba91b](https://github.com/virtbase/virtbase-bookkeeping/commit/bcba91bf85edb6cd726ae731c5c4156438ba0327))
+
+
+### Bug Fixes
+
+* failing tests needing monero binary ([f4c1f7f](https://github.com/virtbase/virtbase-bookkeeping/commit/f4c1f7f35f50e7851be8292ca691e5768958900f))
+
+
+### Refactoring
+
+* fix tailwindcss warnings ([0a70eaf](https://github.com/virtbase/virtbase-bookkeeping/commit/0a70eaf968778b9fbe0576de0a473ba6e51463fb))
