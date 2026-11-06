@@ -1,16 +1,28 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
 import { accountSlug, groupByAccount } from "../../shared/accounts.ts";
-import type { BatchDto, SettingsDto } from "../../shared/types.ts";
+import type {
+  BatchDto,
+  DateFormat,
+  DecimalFormat,
+  RegeneratedExportDto,
+  SettingsDto,
+} from "../../shared/types.ts";
 import { audit } from "../audit.ts";
 import type { Db } from "../db/client.ts";
 import { exportBatches, exportRows, transactions } from "../db/schema.ts";
 import { baselineEnd, statusOf } from "../queries.ts";
 import { resolveRow } from "../resolve.ts";
 import { localDay } from "../time.ts";
-import { renderCsv } from "./csv.ts";
+import { type CsvRow, renderCsv } from "./csv.ts";
 
 export class ExportError extends Error {}
 
@@ -178,6 +190,90 @@ export function createExport(
     }
     throw error;
   }
+}
+
+const DATE_FORMATS: DateFormat[] = ["iso", "de"];
+const DECIMAL_FORMATS: DecimalFormat[] = ["dot", "comma"];
+
+function sha256(content: string | Buffer): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function isUnchanged(path: string, expected: string): boolean {
+  return existsSync(path) && sha256(readFileSync(path)) === expected;
+}
+
+function batchRows(db: Db, id: number): CsvRow[] {
+  const ids = db
+    .select({ id: exportRows.transactionId })
+    .from(exportRows)
+    .where(eq(exportRows.batchId, id))
+    .all()
+    .map((row) => row.id);
+  return db
+    .select()
+    .from(transactions)
+    .where(inArray(transactions.id, ids))
+    .all()
+    .map((row) => ({ ...row, name: row.name ?? "" }))
+    .sort((a, b) => a.occurredAt - b.occurredAt);
+}
+
+function originalContent(rows: CsvRow[], expected: string): string | undefined {
+  return DATE_FORMATS.flatMap((dateFormat) =>
+    DECIMAL_FORMATS.map((decimalFormat) =>
+      renderCsv(rows, { dateFormat, decimalFormat }),
+    ),
+  ).find((content) => sha256(content) === expected);
+}
+
+export function regenerateExport(
+  db: Db,
+  id: number,
+  settings: SettingsDto,
+): RegeneratedExportDto {
+  const batch = db
+    .select()
+    .from(exportBatches)
+    .where(eq(exportBatches.id, id))
+    .get();
+  if (!batch) {
+    throw new ExportError("Export nicht gefunden.");
+  }
+  if (batch.status === "void") {
+    throw new ExportError(
+      "Ein stornierter Export lässt sich nicht erneut erzeugen.",
+    );
+  }
+  if (isUnchanged(batch.filePath, batch.sha256)) {
+    return { fileName: batch.fileName, existed: true, identical: true };
+  }
+  const rows = batchRows(db, id);
+  const original = originalContent(rows, batch.sha256);
+  const content = original ?? renderCsv(rows, settings);
+  const originalMissing = !existsSync(batch.filePath);
+  let fileName: string;
+  try {
+    mkdirSync(settings.exportDir, { recursive: true });
+    fileName = availableName(settings.exportDir, batch.fileName);
+    writeFileSync(join(settings.exportDir, fileName), content, {
+      flag: "wx",
+      mode: 0o600,
+    });
+  } catch {
+    throw new ExportError(
+      "Der Exportordner ist nicht beschreibbar. Bitte prüfe ihn in den Einstellungen.",
+    );
+  }
+  if (originalMissing) {
+    db.update(exportBatches)
+      .set({ fileName, filePath: join(settings.exportDir, fileName) })
+      .where(eq(exportBatches.id, id))
+      .run();
+  }
+  const identical = original !== undefined;
+  audit(db, "export.regenerate", { id, file: fileName, identical });
+  return { fileName, existed: false, identical };
 }
 
 export function voidExport(db: Db, id: number): void {

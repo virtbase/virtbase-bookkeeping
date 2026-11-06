@@ -41,6 +41,24 @@ export interface SummaryDto {
   moneroConfigured: boolean;
   backupFailed: boolean;
   setupRequired: boolean;
+  update: UpdateDto | null;
+  openFeeMonths: OpenFeeMonthDto[];
+}
+
+export interface UpdateDto {
+  version: string;
+  url: string;
+}
+
+export interface OpenFeeMonthDto {
+  month: string;
+  feeCents: number;
+}
+
+export interface RegeneratedExportDto {
+  fileName: string;
+  existed: boolean;
+  identical: boolean;
 }
 
 export interface RestoreResultDto {

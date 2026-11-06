@@ -1,5 +1,6 @@
-import { formatSignedEuro } from "@shared/money.ts";
+import { formatEuro, formatSignedEuro } from "@shared/money.ts";
 import type {
+  OpenFeeMonthDto,
   Source,
   SummaryDto,
   TransactionDto,
@@ -11,6 +12,7 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import {
+  CalendarCheck,
   CalendarDays,
   Download,
   Ellipsis,
@@ -44,7 +46,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
-import { countLabel, formatStamp, rowLabel } from "@/lib/format";
+import { countLabel, formatMonth, formatStamp, rowLabel } from "@/lib/format";
 import { usePrivacy } from "@/lib/preferences";
 import { selectedVisibleRows } from "@/lib/selection";
 import { SOURCES } from "@/lib/sources";
@@ -90,6 +92,12 @@ function rangeFilter(
     return (row) => row.occurredAt >= unix(start);
   }
   return (row) => row.status !== "exported" || row.batchId !== null;
+}
+
+function monthList(months: OpenFeeMonthDto[]): string {
+  const names = months.map((entry) => formatMonth(entry.month));
+  const last = names.pop();
+  return names.length > 0 ? `${names.join(", ")} und ${last}` : `${last}`;
 }
 
 interface TransactionsPageProps {
@@ -425,6 +433,20 @@ export function TransactionsPage({
     statuses.join() !== DEFAULT_STATUSES.join();
   const openRow = (rows ?? []).find((row) => row.id === openId) ?? null;
 
+  const openMonths = summary?.openFeeMonths ?? [];
+  const openFeeCents = openMonths.reduce(
+    (sum, entry) => sum + entry.feeCents,
+    0,
+  );
+
+  const showOpenFees = () => {
+    setSearch("");
+    setStatuses(DEFAULT_STATUSES);
+    setRange("Seit letztem Export");
+    setSources(["fees"]);
+    setPagination({ ...pagination, pageIndex: 0 });
+  };
+
   const resetFilters = () => {
     setSearch("");
     setSources([]);
@@ -468,6 +490,20 @@ export function TransactionsPage({
 
   return (
     <>
+      {openMonths.length > 0 && (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md bg-status-amber px-3 py-2 text-status-amber-foreground text-sm">
+          <span className="flex items-center gap-2">
+            <CalendarCheck className="size-4 shrink-0" aria-hidden="true" />
+            <span>
+              Monatsabschluss: Gebühren für {monthList(openMonths)} sind noch
+              nicht exportiert (<Private>{formatEuro(openFeeCents)}</Private>).
+            </span>
+          </span>
+          <Button variant="outline" size="sm" onClick={showOpenFees}>
+            Anzeigen
+          </Button>
+        </div>
+      )}
       <div
         data-tour="toolbar"
         className="flex shrink-0 flex-wrap items-center gap-2"

@@ -11,6 +11,7 @@ import { createPresence } from "./presence.ts";
 import { SecretStore } from "./secrets.ts";
 import { createSessionState, randomToken } from "./security.ts";
 import { readSettings } from "./settings.ts";
+import { checkForUpdate } from "./updates.ts";
 
 const paths = resolvePaths();
 mkdirSync(paths.home, { recursive: true, mode: 0o700 });
@@ -22,7 +23,7 @@ if (instance.kind === "running") {
   process.exit(0);
 }
 
-const BACKUP_CHECK_MS = 60 * 60 * 1000;
+const HOURLY_CHECK_MS = 60 * 60 * 1000;
 
 const shutdown = () => {
   stopWalletProcesses();
@@ -45,10 +46,15 @@ const backups = new BackupService(
   db,
   paths,
   () => readSettings(db, paths.defaultExportDir),
-  () => Math.floor(Date.now() / 1000),
+  () => currentTime(),
 );
+const currentTime = () => Math.floor(Date.now() / 1000);
 backups.runIfDue();
-setInterval(() => backups.runIfDue(), BACKUP_CHECK_MS).unref();
+void checkForUpdate(db, currentTime());
+setInterval(() => {
+  backups.runIfDue();
+  void checkForUpdate(db, currentTime());
+}, HOURLY_CHECK_MS).unref();
 
 const session = createSessionState();
 const app = createApp({

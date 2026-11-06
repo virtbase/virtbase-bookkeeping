@@ -3,6 +3,7 @@ import type { SummaryDto } from "@shared/types.ts";
 import {
   Archive,
   ChartNoAxesColumn,
+  CircleArrowUp,
   Cog,
   Eye,
   EyeOff,
@@ -92,51 +93,59 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
           </a>
         ))}
       </div>
-      {summary?.backupFailed && (
-        <a
-          href="#/einstellungen"
-          className="mt-auto flex items-center gap-2 rounded-md bg-status-amber px-2 py-1.5 text-status-amber-foreground text-xs"
-        >
-          <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-          Sicherung fehlgeschlagen
-        </a>
-      )}
-      <div
-        className={cn(
-          "flex items-center justify-between pr-1 pl-2",
-          !summary?.backupFailed && "mt-auto",
-        )}
-      >
-        <span className="text-muted-foreground text-xs tabular-nums">
-          v{version}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                data-tour="privacy"
-                className="data-tour-active:bg-muted"
-                aria-label="Privatmodus"
-                aria-pressed={privacy.enabled}
-                onClick={privacy.toggle}
-              >
-                {privacy.enabled ? <EyeOff /> : <Eye />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Privatmodus {privacy.enabled ? "aus" : "ein"} (Alt+P)
-            </TooltipContent>
-          </Tooltip>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Farbschema wechseln"
-            onClick={onToggleTheme}
+      <div className="mt-auto flex flex-col gap-2">
+        {summary?.update && (
+          <a
+            href={summary.update.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-md bg-status-blue px-2 py-1.5 text-status-blue-foreground text-xs"
           >
-            {dark ? <Sun /> : <Moon />}
-          </Button>
+            <CircleArrowUp className="size-3.5 shrink-0" aria-hidden="true" />
+            Version {summary.update.version} verfügbar
+          </a>
+        )}
+        {summary?.backupFailed && (
+          <a
+            href="#/einstellungen"
+            className="flex items-center gap-2 rounded-md bg-status-amber px-2 py-1.5 text-status-amber-foreground text-xs"
+          >
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+            Sicherung fehlgeschlagen
+          </a>
+        )}
+        <div className="flex items-center justify-between pr-1 pl-2">
+          <span className="text-muted-foreground text-xs tabular-nums">
+            v{version}
+          </span>
+          <div className="flex items-center gap-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  data-tour="privacy"
+                  className="data-tour-active:bg-muted"
+                  aria-label="Privatmodus"
+                  aria-pressed={privacy.enabled}
+                  onClick={privacy.toggle}
+                >
+                  {privacy.enabled ? <EyeOff /> : <Eye />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Privatmodus {privacy.enabled ? "aus" : "ein"} (Alt+P)
+              </TooltipContent>
+            </Tooltip>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Farbschema wechseln"
+              onClick={onToggleTheme}
+            >
+              {dark ? <Sun /> : <Moon />}
+            </Button>
+          </div>
         </div>
       </div>
     </nav>

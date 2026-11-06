@@ -31,8 +31,10 @@ import {
   ExportError,
   FormError,
   markImported,
+  regenerateExport,
   voidExport,
 } from "./export/service.ts";
+import { openFeeMonths } from "./fees.ts";
 import { chooseFolder as openFolderDialog } from "./folder-dialog.ts";
 import { type InvoiceReader, LexwareClient } from "./lexware/client.ts";
 import { findInvoices } from "./lexware/matching.ts";
@@ -67,6 +69,7 @@ import {
 import { type BalanceReader, StripeClient } from "./stripe/client.ts";
 import { refreshFeeRows, syncStripe } from "./stripe/sync.ts";
 import { localDay } from "./time.ts";
+import { availableUpdate } from "./updates.ts";
 
 export interface AppDependencies {
   presence?: Presence;
@@ -186,6 +189,8 @@ export function createApp(dependencies: AppDependencies): Hono {
       moneroConfigured: moneroSync.status().configured,
       backupFailed: backups.error !== null,
       setupRequired: !isSetupComplete(db),
+      update: availableUpdate(db),
+      openFeeMonths: openFeeMonths(rows),
     };
     return context.json(summary);
   });
@@ -401,6 +406,12 @@ export function createApp(dependencies: AppDependencies): Hono {
     const { ids } = exportSchema.parse(await context.req.json());
     return context.json(createExport(db, ids, settings(), now()));
   });
+
+  app.post("/api/exports/:id/regenerate", (context) =>
+    context.json(
+      regenerateExport(db, Number(context.req.param("id")), settings()),
+    ),
+  );
 
   app.post("/api/exports/:id/void", (context) => {
     voidExport(db, Number(context.req.param("id")));

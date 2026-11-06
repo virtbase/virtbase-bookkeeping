@@ -9,6 +9,7 @@ import {
   Ban,
   CircleCheck,
   Ellipsis,
+  FileDown,
   FolderOpen,
   Search,
   X,
@@ -87,6 +88,23 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
       }
     },
     [load, onChanged],
+  );
+
+  const regenerate = useCallback(
+    (batch: BatchDto) =>
+      run(async () => {
+        const result = await api.regenerateExport(batch.id);
+        if (result.existed) {
+          toast("Die Datei ist noch vorhanden und unverändert.");
+        } else if (result.identical) {
+          toast(`Identisch neu erzeugt: ${result.fileName}`);
+        } else {
+          toast.warning(
+            `Neu erzeugt, weicht aber vom Original ab: ${result.fileName}`,
+          );
+        }
+      }),
+    [run],
   );
 
   const batches = useMemo(() => data?.batches ?? [], [data]);
@@ -203,6 +221,12 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
                   Datei im Ordner zeigen
                 </DropdownMenuItem>
                 {batch.status !== "void" && (
+                  <DropdownMenuItem onClick={() => void regenerate(batch)}>
+                    <FileDown />
+                    CSV erneut erzeugen
+                  </DropdownMenuItem>
+                )}
+                {batch.status !== "void" && (
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => setVoiding(batch)}
@@ -217,7 +241,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
         },
       },
     ],
-    [run],
+    [run, regenerate],
   );
 
   const table = useTable({

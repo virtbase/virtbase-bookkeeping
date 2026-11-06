@@ -1,6 +1,10 @@
 import { eq, inArray } from "drizzle-orm";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../shared/purpose.ts";
-import type { PreferencesDto, SettingsDto } from "../shared/types.ts";
+import type {
+  PreferencesDto,
+  SettingsDto,
+  UpdateDto,
+} from "../shared/types.ts";
 import {
   DEFAULT_ACCOUNTS,
   DEFAULT_MONERO_NODES,
@@ -18,6 +22,7 @@ const MONERO_KEY = "monero.wallet";
 const PREFERENCES_KEY = "preferences";
 const SETUP_KEY = "setup.completedAt";
 const RESTORED_KEY = "setup.restoredAt";
+const UPDATE_KEY = "update.check";
 
 function readValue(db: Db, key: string): string | null {
   return (
@@ -80,6 +85,22 @@ export function readPreferences(db: Db): PreferencesDto {
 
 export function writePreferences(db: Db, value: PreferencesDto): void {
   writeValue(db, PREFERENCES_KEY, JSON.stringify(value));
+}
+
+export interface UpdateCheck {
+  checkedAt: number | null;
+  latest: UpdateDto | null;
+}
+
+export function readUpdateCheck(db: Db): UpdateCheck {
+  const stored = readValue(db, UPDATE_KEY);
+  return stored
+    ? (JSON.parse(stored) as UpdateCheck)
+    : { checkedAt: null, latest: null };
+}
+
+export function writeUpdateCheck(db: Db, value: UpdateCheck): void {
+  writeValue(db, UPDATE_KEY, JSON.stringify(value));
 }
 
 export function isSetupComplete(db: Db): boolean {

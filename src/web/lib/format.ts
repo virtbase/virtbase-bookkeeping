@@ -26,6 +26,16 @@ export function rowLabel(count: number): string {
   return countLabel(count, "Zeile", "Zeilen");
 }
 
+const monthFormat = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "UTC",
+  month: "long",
+  year: "numeric",
+});
+
+export function formatMonth(month: string): string {
+  return monthFormat.format(new Date(`${month}-01T00:00:00Z`));
+}
+
 export function formatBytes(bytes: number): string {
   const megabytes = bytes / 1048576;
   return `${megabytes.toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`;

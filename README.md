@@ -79,7 +79,7 @@ The app saves a copy of the database to `~/Bookkeeping/backups`. It does this at
 
 The app keeps the 10 newest copies, one per day for 14 days and one per month forever. It never touches other files in that folder. If a backup fails, the sidebar shows a warning and the audit log records the reason.
 
-Backups do not contain API keys, the Monero wallet or exported CSV files. After a restore on a new computer, enter the keys again and set up the wallet.
+Backups do not contain API keys, the Monero wallet or exported CSV files. Under Exporte, **CSV erneut erzeugen** rebuilds a lost CSV from the database and checks it against the original checksum. It never overwrites an existing file and tells you if the result differs from the original. After a restore on a new computer, enter the keys again and set up the wallet.
 
 On a new install, restore in the setup wizard. To go back to an older copy on a running install, first close every tab and wait until the app has stopped. Then run this with the file you want:
 
@@ -103,6 +103,12 @@ Each category belongs to a Lexware account, set under **CSV-Export** in the sett
 - **Datenbank zurücksetzen** deletes everything, including settings, API keys and the view-only wallet.
 
 Both first write `bookkeeping.sqlite.reset-<time>.bak` into the data folder. To restore one, stop the app and copy it over `bookkeeping.sqlite`. Exported CSV files are never deleted. API keys are not part of the backup.
+
+## Reminders and updates
+
+When a month is over and its fee rows are not exported yet, Transaktionen shows a hint. **Anzeigen** filters the table to those rows. The hint disappears once they are exported or hidden.
+
+The app asks GitHub once a day for the latest release and shows a link in the sidebar when a newer version exists. It sends no data of yours. The source is `RELEASES_API` in `src/server/constants.ts`, and it must be readable without a login. A private repository looks like "no release", so no hint appears.
 
 ## Statistics
 

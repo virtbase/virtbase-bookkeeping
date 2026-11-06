@@ -2,6 +2,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   sync: "Stripe synchronisiert",
   export: "Export erstellt",
   "export.void": "Export storniert",
+  "export.regenerate": "Export erneut erzeugt",
   "export.imported": "In Lexware importiert",
   "monero.import": "Monero-Zahlungen importiert",
   "monero.wallet": "Monero-Wallet eingerichtet",

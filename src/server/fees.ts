@@ -1,4 +1,5 @@
 import { and, eq, gte, lt } from "drizzle-orm";
+import type { OpenFeeMonthDto, TransactionDto } from "../shared/types.ts";
 import { PAYPAL_NAME, STRIPE_NAME } from "./constants.ts";
 import type { Db } from "./db/client.ts";
 import { type Company, exportRows, transactions } from "./db/schema.ts";
@@ -112,6 +113,21 @@ function hideClosedFeeRows(db: Db, closedThrough: string): void {
         .run();
     }
   }
+}
+
+export function openFeeMonths(
+  rows: Pick<TransactionDto, "id" | "source" | "status" | "amountCents">[],
+): OpenFeeMonthDto[] {
+  const months = new Map<string, number>();
+  for (const row of rows) {
+    const month = /^fee:(\d{4}-\d{2}):/.exec(row.id)?.[1];
+    if (month && row.source === "fees" && row.status === "ready") {
+      months.set(month, (months.get(month) ?? 0) + Math.abs(row.amountCents));
+    }
+  }
+  return [...months.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, feeCents]) => ({ month, feeCents }));
 }
 
 export function rebuildFeeRows(

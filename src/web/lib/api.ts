@@ -11,6 +11,7 @@ import type {
   MoneroImportResultDto,
   MoneroStatusDto,
   PreferencesDto,
+  RegeneratedExportDto,
   RestoreResultDto,
   SettingsDto,
   SummaryDto,
@@ -109,6 +110,10 @@ export const api = {
   voidExport: (id: number) => request(`exports/${id}/void`, { method: "POST" }),
   markImported: (id: number) =>
     request(`exports/${id}/imported`, { method: "POST" }),
+  regenerateExport: (id: number) =>
+    request<RegeneratedExportDto>(`exports/${id}/regenerate`, {
+      method: "POST",
+    }),
   revealExport: (id: number) =>
     request(`exports/${id}/reveal`, { method: "POST" }),
   chooseFolder: (current: string) =>

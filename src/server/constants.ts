@@ -11,3 +11,6 @@ export const DEFAULT_MONERO_NODES = [
   "https://monero.stackwallet.com:18081",
   "https://node.monerodevs.org:18089",
 ];
+
+export const RELEASES_API =
+  "https://api.github.com/repos/virtbase/virtbase-bookkeeping/releases/latest";
