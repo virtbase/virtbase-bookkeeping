@@ -55,6 +55,7 @@ describe("linux layout", () => {
 
   test("lists the licenses of bundled software", () => {
     const copyright = renderCopyright(PRODUCT, root);
+    expect(copyright).toContain("MIT License");
     expect(copyright).toContain("Bun itself is MIT-licensed");
     expect(copyright).toContain("The Monero Project");
     expect(copyright).toContain("react ");

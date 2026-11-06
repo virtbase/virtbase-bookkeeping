@@ -1,9 +1,9 @@
 import * as z from "zod";
 import { parseEuroInput } from "./money.ts";
+import type { PurposeKey } from "./purpose.ts";
 import {
   PURPOSE_DEFINITIONS,
   PURPOSE_KEYS,
-  type PurposeKey,
   unknownPlaceholders,
 } from "./purpose.ts";
 

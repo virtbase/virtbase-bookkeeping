@@ -22,7 +22,8 @@ import { exportBatches, exportRows, transactions } from "../db/schema.ts";
 import { baselineEnd, statusOf } from "../queries.ts";
 import { resolveRow } from "../resolve.ts";
 import { localDay } from "../time.ts";
-import { type CsvRow, renderCsv } from "./csv.ts";
+import type { CsvRow } from "./csv.ts";
+import { renderCsv } from "./csv.ts";
 
 export class ExportError extends Error {}
 

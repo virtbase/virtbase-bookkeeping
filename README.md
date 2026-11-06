@@ -65,13 +65,13 @@ The CSV import from Monero GUI still works. Both use the same transaction ID, so
 
 Everything lives in `~/Bookkeeping`, or in `BOOKKEEPING_HOME` if set:
 
-| Path | Content |
-| --- | --- |
-| `bookkeeping.sqlite` | Ledger, export history, settings, audit log |
-| `secrets.json` | API keys, readable by your user only |
-| `exports/` | Exported CSV files |
-| `monero/` | View-only wallet, encrypted with a random password from `secrets.json` |
-| `bin/` | Verified copy of the bundled wallet program |
+| Path                 | Content                                                                |
+| -------------------- | ---------------------------------------------------------------------- |
+| `bookkeeping.sqlite` | Ledger, export history, settings, audit log                            |
+| `secrets.json`       | API keys, readable by your user only                                   |
+| `exports/`           | Exported CSV files                                                     |
+| `monero/`            | View-only wallet, encrypted with a random password from `secrets.json` |
+| `bin/`               | Verified copy of the bundled wallet program                            |
 
 ## Backups
 
@@ -131,16 +131,21 @@ The two fee rows appear in the table once a month has ended in UTC. They come fr
 ## Development
 
 ```bash
-bun run dev
-bun run test
-bun run typecheck
-bun run lint
+bun install
+BOOKKEEPING_HOME=~/Bookkeeping-test bun run dev
+bun run verify
 ```
 
-To test without touching your real data, use another home:
+`bun run verify` runs Biome, the type check and the tests. Always set `BOOKKEEPING_HOME` while developing, otherwise the app uses your real data in `~/Bookkeeping`. The VS Code tasks and debug profiles already point to `~/Bookkeeping-test`.
 
-```bash
-BOOKKEEPING_HOME=~/Bookkeeping-test bun run start
-```
+`bun install` also activates the Git hooks. They format staged files with Biome and check commit messages against [Conventional Commits](https://www.conventionalcommits.org).
 
-If you copy a database there, also change `exportDir`, or exports land in the real folder.
+To test without touching your real data, copy the database to the test home. If you do, also change `exportDir`, or exports land in the real folder.
+
+## Releases
+
+Releases come from commit messages. `feat:` raises the minor version and `fix:` the patch version, while the version is below 1.0. [release-please](https://github.com/googleapis/release-please) keeps a pull request open with the next version and changelog. Merging it creates the tag and the GitHub release, and CI attaches the `.deb` and its checksums.
+
+## License
+
+[MIT](LICENSE). Packages also contain third-party software under its own license, such as Bun, parts of which are LGPL-2, and the BSD-3-licensed Monero wallet RPC. The installed `copyright` file lists them all.

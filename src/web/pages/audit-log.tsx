@@ -5,20 +5,17 @@ import {
   formatAuditTime,
 } from "@shared/audit.ts";
 import type { AuditEventDto } from "@shared/types.ts";
-import {
-  type PaginationState,
-  type RowSelectionState,
-  type SortingState,
-  useTable,
+import type {
+  PaginationState,
+  RowSelectionState,
+  SortingState,
 } from "@tanstack/react-table";
+import { useTable } from "@tanstack/react-table";
 import { Download, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  type AppColumn,
-  DataTable,
-  SortHeader,
-} from "@/components/data-table/data-table";
+import type { AppColumn } from "@/components/data-table/data-table";
+import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
 import { SearchInput } from "@/components/data-table/search-input";

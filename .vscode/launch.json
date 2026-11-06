@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Server (test data)",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/server/index.ts",
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false,
+      "watchMode": false,
+      "env": {
+        "BOOKKEEPING_HOME": "${env:HOME}/Bookkeeping-test"
+      },
+      "preLaunchTask": "build web"
+    },
+    {
+      "name": "Current test file",
+      "type": "bun",
+      "request": "launch",
+      "runtimeArgs": ["test"],
+      "program": "${file}",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "All tests",
+      "type": "bun",
+      "request": "launch",
+      "runtimeArgs": ["test"],
+      "program": "tests",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

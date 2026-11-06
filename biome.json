@@ -1,28 +1,69 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.6.5/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  },
   "files": {
+    "ignoreUnknown": true,
     "includes": [
-      "src/**",
-      "scripts/**",
-      "tests/**",
-      "*.ts",
-      "*.json",
+      "**",
+      "!.vscode",
       "!src/web/components/ui",
       "!src/web/favicon.svg"
     ]
   },
   "formatter": {
-    "indentStyle": "space"
-  },
-  "linter": {
     "enabled": true,
-    "rules": {
-      "preset": "recommended"
-    }
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 80
   },
   "css": {
     "parser": {
       "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      "react": "recommended",
+      "test": "recommended"
+    },
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "useDateNow": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "style": {
+        "useConst": "error",
+        "useImportType": {
+          "level": "error",
+          "options": {
+            "style": "separatedType"
+          }
+        },
+        "useNodejsImportProtocol": "error"
+      },
+      "suspicious": {
+        "noDebugger": "error",
+        "noTsIgnore": "error"
+      }
     }
   }
 }

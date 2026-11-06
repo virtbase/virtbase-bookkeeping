@@ -1,10 +1,5 @@
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useRef,
-} from "react";
+import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import { usePreferences } from "@/lib/preferences";
 
 export interface Shortcut {

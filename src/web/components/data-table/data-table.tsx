@@ -14,13 +14,8 @@ import {
   ChevronsUpDown,
   ChevronUp,
 } from "lucide-react";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { KeyHint } from "@/components/shortcut-hint";
 import { Button } from "@/components/ui/button";
 import {

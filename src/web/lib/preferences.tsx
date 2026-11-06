@@ -1,7 +1,7 @@
 import type { PreferencesDto } from "@shared/types.ts";
+import type { ReactNode } from "react";
 import {
   createContext,
-  type ReactNode,
   useCallback,
   useContext,
   useEffect,

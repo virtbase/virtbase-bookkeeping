@@ -1,10 +1,7 @@
 import { formatSignedEuro } from "@shared/money.ts";
 import type { BatchDto, BatchStatus, ExportsDto } from "@shared/types.ts";
-import {
-  type PaginationState,
-  type SortingState,
-  useTable,
-} from "@tanstack/react-table";
+import type { PaginationState, SortingState } from "@tanstack/react-table";
+import { useTable } from "@tanstack/react-table";
 import {
   Ban,
   CircleCheck,
@@ -17,13 +14,15 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { type AppColumn, DataTable } from "@/components/data-table/data-table";
+import type { AppColumn } from "@/components/data-table/data-table";
+import { DataTable } from "@/components/data-table/data-table";
 import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
 import { SearchInput } from "@/components/data-table/search-input";
 import { Private } from "@/components/private";
-import { StatusBadge, type Tone } from "@/components/status-badge";
+import type { Tone } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,10 +41,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 import { copyText } from "@/lib/copy";
+import type { ExportFilter } from "@/lib/export-filter";
 import {
   BATCH_STATUS_LABELS,
   EMPTY_EXPORT_FILTER,
-  type ExportFilter,
   filterBatches,
   isFiltered,
   NO_ACCOUNT_LABEL,

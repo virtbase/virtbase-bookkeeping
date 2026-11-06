@@ -45,7 +45,10 @@ export function renderCopyright(product: Product, root: string): string {
   const read = (path: string) => readFileSync(join(root, path), "utf8").trim();
   return `${[
     product.title,
-    `Copyright (c) 2026 ${product.vendor}. All rights reserved.`,
+    `${product.title} is licensed under the MIT License:`,
+    "",
+    read("LICENSE"),
+    "",
     `Source: ${product.homepage}`,
     "",
     "This package contains the following third-party software.",

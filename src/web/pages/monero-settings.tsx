@@ -1,13 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type MoneroWalletForm, moneroWalletSchema } from "@shared/schemas.ts";
+import type { MoneroWalletForm } from "@shared/schemas.ts";
+import { moneroWalletSchema } from "@shared/schemas.ts";
 import type { MoneroStatusDto } from "@shared/types.ts";
 import { CircleQuestionMark, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-  Controller,
-  type FieldError as HookError,
-  useForm,
-} from "react-hook-form";
+import type { FieldError as HookError } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { HelpSheet } from "@/components/help-sheet";

@@ -2,7 +2,8 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import type { OpenFeeMonthDto, TransactionDto } from "../shared/types.ts";
 import { PAYPAL_NAME, STRIPE_NAME } from "./constants.ts";
 import type { Db } from "./db/client.ts";
-import { type Company, exportRows, transactions } from "./db/schema.ts";
+import type { Company } from "./db/schema.ts";
+import { exportRows, transactions } from "./db/schema.ts";
 import {
   lastDayOfMonth,
   localMidnight,

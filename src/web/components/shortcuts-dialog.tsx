@@ -6,11 +6,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { ShortcutId } from "@/lib/shortcuts";
 import {
   FOCUSED_SHORTCUTS,
   isSingleKey,
   SHORTCUTS,
-  type ShortcutId,
   useShortcutsEnabled,
 } from "@/lib/shortcuts";
 

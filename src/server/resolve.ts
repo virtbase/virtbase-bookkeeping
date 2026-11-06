@@ -1,5 +1,6 @@
 import { atomicToXmr, formatPlainGerman } from "../shared/money.ts";
-import { type PurposeKey, renderTemplate } from "../shared/purpose.ts";
+import type { PurposeKey } from "../shared/purpose.ts";
+import { renderTemplate } from "../shared/purpose.ts";
 import type { SettingsDto } from "../shared/types.ts";
 import type { transactions } from "./db/schema.ts";
 import { germanDay, localDay } from "./time.ts";

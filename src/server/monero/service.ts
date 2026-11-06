@@ -4,7 +4,8 @@ import type { MoneroImportResultDto } from "../../shared/types.ts";
 import { audit } from "../audit.ts";
 import type { Db } from "../db/client.ts";
 import { transactions } from "../db/schema.ts";
-import { type MoneroRow, parseMoneroCsv, withStableIds } from "./csv.ts";
+import type { MoneroRow } from "./csv.ts";
+import { parseMoneroCsv, withStableIds } from "./csv.ts";
 import type { Rate, RateProvider } from "./rates.ts";
 
 const DEFAULT_LABEL = "Primary account";

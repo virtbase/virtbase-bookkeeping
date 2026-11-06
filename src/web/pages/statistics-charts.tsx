@@ -5,11 +5,11 @@ import type {
   Statistics,
 } from "@shared/statistics.ts";
 import type { ReactNode } from "react";
+import type { ChartConfig } from "@/components/ui/chart";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ComposedChart,

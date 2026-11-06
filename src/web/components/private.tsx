@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { MASK, usePrivacy } from "@/lib/preferences";
 
 const REVEAL_MS = 10000;

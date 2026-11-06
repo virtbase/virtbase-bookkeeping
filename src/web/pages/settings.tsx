@@ -1,12 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  PURPOSE_DEFINITIONS,
-  PURPOSE_KEYS,
-  type PurposeKey,
-} from "@shared/purpose.ts";
+import type { PurposeKey } from "@shared/purpose.ts";
+import { PURPOSE_DEFINITIONS, PURPOSE_KEYS } from "@shared/purpose.ts";
+import type { SecretForm } from "@shared/schemas.ts";
 import {
   lexwareKeySchema,
-  type SecretForm,
   settingsSchema,
   stripeKeySchema,
 } from "@shared/schemas.ts";
@@ -34,13 +31,8 @@ import {
   TextCursorInput,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  type Control,
-  Controller,
-  type FieldPath,
-  type UseFormSetValue,
-  useForm,
-} from "react-hook-form";
+import type { Control, FieldPath, UseFormSetValue } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
 import { DateTimePicker } from "@/components/date-time-picker";

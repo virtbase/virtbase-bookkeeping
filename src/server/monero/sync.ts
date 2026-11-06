@@ -6,7 +6,8 @@ import {
   readSettings,
   writeMoneroMarks,
 } from "../settings.ts";
-import { providerFor, type RateProvider } from "./rates.ts";
+import type { RateProvider } from "./rates.ts";
+import { providerFor } from "./rates.ts";
 import { importMoneroRows } from "./service.ts";
 import type { WalletBackend, WalletKeys } from "./wallet.ts";
 

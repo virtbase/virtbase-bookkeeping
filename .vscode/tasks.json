@@ -1,0 +1,96 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      "BOOKKEEPING_HOME": "${env:HOME}/Bookkeeping-test"
+    }
+  },
+  "presentation": {
+    "clear": true,
+    "panel": "dedicated"
+  },
+  "tasks": [
+    {
+      "label": "dev",
+      "detail": "Server and web build on ~/Bookkeeping-test",
+      "type": "shell",
+      "command": "bun run dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "start",
+      "detail": "Build and start on ~/Bookkeeping-test",
+      "type": "shell",
+      "command": "bun run start",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "build web",
+      "detail": "Build the web app into dist/web",
+      "type": "shell",
+      "command": "bun run build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "bun run typecheck",
+      "problemMatcher": ["$tsc"],
+      "group": "build"
+    },
+    {
+      "label": "check",
+      "detail": "Biome lint and format check",
+      "type": "shell",
+      "command": "bun run check",
+      "problemMatcher": []
+    },
+    {
+      "label": "check:write",
+      "detail": "Apply Biome fixes",
+      "type": "shell",
+      "command": "bun run check:write",
+      "problemMatcher": []
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "bun run test",
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "verify",
+      "detail": "Lint, types and tests",
+      "type": "shell",
+      "command": "bun run verify",
+      "problemMatcher": ["$tsc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "compile",
+      "detail": "Build the single binary",
+      "type": "shell",
+      "command": "bun run compile",
+      "problemMatcher": []
+    },
+    {
+      "label": "package:deb",
+      "detail": "Build the Debian package",
+      "type": "shell",
+      "command": "bun run package:deb",
+      "problemMatcher": []
+    }
+  ]
+}

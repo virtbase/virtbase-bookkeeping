@@ -25,10 +25,8 @@ import {
 } from "../src/server/monero/rpc.ts";
 import { importMoneroRows } from "../src/server/monero/service.ts";
 import { MoneroSync } from "../src/server/monero/sync.ts";
-import {
-  incomingRows,
-  type WalletBackend,
-} from "../src/server/monero/wallet.ts";
+import type { WalletBackend } from "../src/server/monero/wallet.ts";
+import { incomingRows } from "../src/server/monero/wallet.ts";
 import { SecretStore } from "../src/server/secrets.ts";
 import { createSessionState } from "../src/server/security.ts";
 import { writeMoneroMarks } from "../src/server/settings.ts";

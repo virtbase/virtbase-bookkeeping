@@ -4,6 +4,7 @@ import { transactions } from "../src/server/db/schema.ts";
 import { listStatRows, listTransactions } from "../src/server/queries.ts";
 import { historyStart } from "../src/server/stripe/sync.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../src/shared/purpose.ts";
+import type { StatOptions, StatRow } from "../src/shared/statistics.ts";
 import {
   bucketKey,
   bucketLabel,
@@ -11,8 +12,6 @@ import {
   linearForecast,
   productLabel,
   renderStatisticsCsv,
-  type StatOptions,
-  type StatRow,
   suggestedGranularity,
 } from "../src/shared/statistics.ts";
 import type { SettingsDto } from "../src/shared/types.ts";

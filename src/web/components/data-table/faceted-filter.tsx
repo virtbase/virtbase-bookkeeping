@@ -1,4 +1,5 @@
-import { Check, type LucideIcon, PlusCircle, XCircle } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Check, PlusCircle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

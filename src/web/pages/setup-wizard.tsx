@@ -1,19 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type SetupForm, setupSchema } from "@shared/schemas.ts";
+import type { SetupForm } from "@shared/schemas.ts";
+import { setupSchema } from "@shared/schemas.ts";
 import type {
   RestoreResultDto,
   SettingsDto,
   SummaryDto,
 } from "@shared/types.ts";
 import { DatabaseBackup, FolderOpen, Sparkles } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import {
-  Controller,
-  type FieldPath,
-  type UseFormReturn,
-  useForm,
-  useWatch,
-} from "react-hook-form";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FieldPath, UseFormReturn } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { VirtbaseIcon } from "@/components/icons";

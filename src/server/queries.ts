@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
-import { productLabel, type StatRow } from "../shared/statistics.ts";
+import type { StatRow } from "../shared/statistics.ts";
+import { productLabel } from "../shared/statistics.ts";
 import type {
   AuditEventDto,
   BatchDto,

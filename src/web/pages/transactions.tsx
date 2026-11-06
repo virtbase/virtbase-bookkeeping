@@ -7,11 +7,8 @@ import type {
   TransactionDto,
   TransactionStatus,
 } from "@shared/types.ts";
-import {
-  type RowSelectionState,
-  type SortingState,
-  useTable,
-} from "@tanstack/react-table";
+import type { RowSelectionState, SortingState } from "@tanstack/react-table";
+import { useTable } from "@tanstack/react-table";
 import {
   CalendarCheck,
   CalendarDays,
@@ -27,17 +24,15 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
-import {
-  type AppColumn,
-  DataTable,
-  SortHeader,
-} from "@/components/data-table/data-table";
+import type { AppColumn } from "@/components/data-table/data-table";
+import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
 import { SearchInput } from "@/components/data-table/search-input";
 import { Private } from "@/components/private";
 import { ShortcutHint } from "@/components/shortcut-hint";
-import { StatusBadge, type Tone } from "@/components/status-badge";
+import type { Tone } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {

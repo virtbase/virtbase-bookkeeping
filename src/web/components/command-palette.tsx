@@ -1,5 +1,6 @@
 import { formatEuro, formatSignedEuro, plainAmount } from "@shared/money.ts";
 import type { BatchDto, TransactionDto } from "@shared/types.ts";
+import type { LucideIcon } from "lucide-react";
 import {
   Archive,
   ChartNoAxesColumn,
@@ -9,7 +10,6 @@ import {
   GraduationCap,
   Keyboard,
   List,
-  type LucideIcon,
   Moon,
   RefreshCw,
   ScrollText,
@@ -30,7 +30,8 @@ import { api } from "@/lib/api";
 import { formatStamp } from "@/lib/format";
 import { requestPageAction } from "@/lib/page-actions";
 import { usePreferences, usePrivacy } from "@/lib/preferences";
-import { runShortcut, type ShortcutId, useShortcut } from "@/lib/shortcuts";
+import type { ShortcutId } from "@/lib/shortcuts";
+import { runShortcut, useShortcut } from "@/lib/shortcuts";
 
 const RESULT_LIMIT = 8;
 const MIN_QUERY_LENGTH = 2;

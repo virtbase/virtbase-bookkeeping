@@ -1,10 +1,6 @@
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import {
-  isSingleKey,
-  SHORTCUTS,
-  type ShortcutId,
-  useShortcutsEnabled,
-} from "@/lib/shortcuts";
+import type { ShortcutId } from "@/lib/shortcuts";
+import { isSingleKey, SHORTCUTS, useShortcutsEnabled } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 
 export function KeyHint({

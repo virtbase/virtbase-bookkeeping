@@ -11,12 +11,8 @@ import type { SecretStore } from "../secrets.ts";
 import { randomToken } from "../security.ts";
 import { ensureWalletRpc } from "./bundle.ts";
 import type { MoneroRow } from "./csv.ts";
-import {
-  certificateFingerprint,
-  daemonTlsArgs,
-  type NodeTarget,
-  pickNodes,
-} from "./nodes.ts";
+import type { NodeTarget } from "./nodes.ts";
+import { certificateFingerprint, daemonTlsArgs, pickNodes } from "./nodes.ts";
 import { WalletRpc, WalletRpcError } from "./rpc.ts";
 
 const WALLET_NAME = "bookkeeping-view";

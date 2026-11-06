@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  type BalanceTransaction,
-  mapBalanceTransaction,
-} from "../src/server/stripe/mapping.ts";
+import type { BalanceTransaction } from "../src/server/stripe/mapping.ts";
+import { mapBalanceTransaction } from "../src/server/stripe/mapping.ts";
 
 const base: BalanceTransaction = {
   id: "txn_1",

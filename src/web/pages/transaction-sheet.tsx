@@ -6,14 +6,12 @@ import {
   parseEuroInput,
   plainAmount,
 } from "@shared/money.ts";
-import {
-  type MoneroForm,
-  moneroFormSchema,
-  nameFormSchema,
-} from "@shared/schemas.ts";
+import type { MoneroForm } from "@shared/schemas.ts";
+import { moneroFormSchema, nameFormSchema } from "@shared/schemas.ts";
 import type { InvoiceLookupDto, TransactionDto } from "@shared/types.ts";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import type { KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";

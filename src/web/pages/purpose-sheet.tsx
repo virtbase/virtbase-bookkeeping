@@ -1,11 +1,12 @@
+import type { PurposeKey } from "@shared/purpose.ts";
 import {
   PLACEHOLDER_DESCRIPTIONS,
   PURPOSE_DEFINITIONS,
-  type PurposeKey,
   renderTemplate,
 } from "@shared/purpose.ts";
 import type { SettingsDto } from "@shared/types.ts";
-import { type Control, useWatch } from "react-hook-form";
+import type { Control } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 import {
   Sheet,
   SheetContent,

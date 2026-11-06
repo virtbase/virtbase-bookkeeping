@@ -1,0 +1,45 @@
+{
+  "[css][tailwindcss][javascript][javascriptreact][json][jsonc][typescript][typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "biome.requireConfiguration": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
+  },
+  "editor.rulers": [80],
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "bun.lock, bunfig.toml, tsconfig.json, vite.config.ts, biome.json, biome.ci.json, release-please-config.json, .release-please-manifest.json",
+    "README.md": "LICENSE, CHANGELOG.md"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/dist": true
+  },
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "files.watcherExclude": {
+    "**/dist/**": true,
+    "**/vendor/**": true
+  },
+  "js/ts.experimental.useTsgo": true,
+  "js/ts.preferences.importModuleSpecifier": "shortest",
+  "js/ts.preferences.preferTypeOnlyAutoImports": true,
+  "js/ts.tsdk.path": "./node_modules/typescript",
+  "npm.packageManager": "bun",
+  "search.exclude": {
+    "**/dist": true,
+    "**/node_modules": true,
+    "**/vendor": true,
+    "bun.lock": true
+  },
+  "tailwindCSS.classFunctions": ["cn", "cva", "clsx"],
+  "tailwindCSS.experimental.configFile": "src/web/styles.css"
+}

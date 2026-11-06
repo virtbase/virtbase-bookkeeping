@@ -36,12 +36,14 @@ import {
 } from "./export/service.ts";
 import { openFeeMonths } from "./fees.ts";
 import { chooseFolder as openFolderDialog } from "./folder-dialog.ts";
-import { type InvoiceReader, LexwareClient } from "./lexware/client.ts";
+import type { InvoiceReader } from "./lexware/client.ts";
+import { LexwareClient } from "./lexware/client.ts";
 import { findInvoices } from "./lexware/matching.ts";
 import { providerFor } from "./monero/rates.ts";
 import { importMoneroCsv } from "./monero/service.ts";
 import { MoneroSync } from "./monero/sync.ts";
-import { MoneroWallet, type WalletBackend } from "./monero/wallet.ts";
+import type { WalletBackend } from "./monero/wallet.ts";
+import { MoneroWallet } from "./monero/wallet.ts";
 import type { Paths } from "./paths.ts";
 import type { Presence } from "./presence.ts";
 import {
@@ -55,7 +57,8 @@ import {
 import { resetEverything, resetExports } from "./reset.ts";
 import { restoreBackup } from "./restore.ts";
 import type { SecretStore } from "./secrets.ts";
-import { guard, type SessionState, securityHeaders } from "./security.ts";
+import type { SessionState } from "./security.ts";
+import { guard, securityHeaders } from "./security.ts";
 import {
   isSetupComplete,
   markSetupComplete,
@@ -66,7 +69,8 @@ import {
   writePreferences,
   writeSettings,
 } from "./settings.ts";
-import { type BalanceReader, StripeClient } from "./stripe/client.ts";
+import type { BalanceReader } from "./stripe/client.ts";
+import { StripeClient } from "./stripe/client.ts";
 import { refreshFeeRows, syncStripe } from "./stripe/sync.ts";
 import { localDay } from "./time.ts";
 import { availableUpdate } from "./updates.ts";

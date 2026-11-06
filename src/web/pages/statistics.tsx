@@ -1,37 +1,28 @@
 import { formatEuro } from "@shared/money.ts";
+import type {
+  Granularity,
+  GroupBy,
+  SourceLabels,
+  StatBucket,
+  StatisticsDto,
+} from "@shared/statistics.ts";
 import {
   buildStatistics,
-  type Granularity,
-  type GroupBy,
   renderStatisticsCsv,
-  type SourceLabels,
-  type StatBucket,
-  type StatisticsDto,
   shiftDay,
   shiftMonth,
   suggestedGranularity,
 } from "@shared/statistics.ts";
 import type { Source } from "@shared/types.ts";
-import {
-  type PaginationState,
-  type SortingState,
-  useTable,
-} from "@tanstack/react-table";
-import {
-  Download,
-  Euro,
-  type LucideIcon,
-  Receipt,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import type { PaginationState, SortingState } from "@tanstack/react-table";
+import { useTable } from "@tanstack/react-table";
+import type { LucideIcon } from "lucide-react";
+import { Download, Euro, Receipt, TrendingUp, Wallet } from "lucide-react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  type AppColumn,
-  DataTable,
-  SortHeader,
-} from "@/components/data-table/data-table";
+import type { AppColumn } from "@/components/data-table/data-table";
+import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
