@@ -1,0 +1,62 @@
+name: Monero update
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: monero-update
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  update:
+    name: Update wallet binary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Verify the latest release
+        id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/monero-update.ts
+
+      - name: Fetch the new binary
+        if: steps.update.outputs.version != ''
+        run: bun scripts/fetch-monero.ts
+
+      - name: Test
+        if: steps.update.outputs.version != ''
+        run: bun run test
+
+      - name: Open a pull request
+        if: steps.update.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          branch="deps/monero-v${VERSION}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "Branch $branch already exists."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add src/server/monero/bundle.ts
+          git commit -m "fix(deps): update monero-wallet-rpc to v${VERSION}"
+          git push origin "$branch"
+          gh pr create \
+            --title "fix(deps): update monero-wallet-rpc to v${VERSION}" \
+            --body "Verified against the signed hashes.txt with the pinned Monero signing key. Tests passed in this workflow. Merging triggers a patch release."

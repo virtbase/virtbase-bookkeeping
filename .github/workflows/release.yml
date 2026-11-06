@@ -35,7 +35,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
+      attestations: write
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,6 +48,14 @@ jobs:
 
       - name: Build
         run: bun run package
+
+      - name: Smoke test
+        run: bun scripts/smoke-test.ts
+
+      - name: Attest the packages
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/packages/*.deb
 
       - name: Write checksums
         working-directory: dist/packages

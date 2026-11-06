@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { websocket } from "hono/bun";
+import { version } from "../../package.json";
 import { createApp } from "./app.ts";
 import { BackupService } from "./backup.ts";
 import { openDatabase } from "./db/client.ts";
@@ -17,7 +18,9 @@ const paths = resolvePaths();
 mkdirSync(paths.home, { recursive: true, mode: 0o700 });
 
 const opensBrowser = process.env.BOOKKEEPING_NO_OPEN !== "1";
-const instance = await claimInstance(join(paths.home, "instance.json"));
+const instance = await claimInstance(join(paths.home, "instance.json"), {
+  version,
+});
 if (instance.kind === "running") {
   console.log(`Virtbase Bookkeeping läuft bereits: ${instance.url}`);
   process.exit(0);
@@ -88,5 +91,13 @@ const open = () => {
   return url;
 };
 
-instance.publish(open);
+const stop = () => {
+  if (presence.isBusy()) {
+    return false;
+  }
+  setTimeout(shutdown, 0);
+  return true;
+};
+
+instance.publish({ open, stop });
 console.log(`Virtbase Bookkeeping: ${open()}`);

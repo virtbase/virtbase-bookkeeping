@@ -1,6 +1,7 @@
 export interface Presence {
   connect(): () => void;
   begin(): () => void;
+  isBusy(): boolean;
 }
 
 interface PresenceOptions {
@@ -47,5 +48,6 @@ export function createPresence({ graceMs, onIdle }: PresenceOptions): Presence {
       hold((delta) => {
         busy += delta;
       }),
+    isBusy: () => busy > 0,
   };
 }

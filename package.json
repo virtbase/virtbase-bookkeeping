@@ -36,6 +36,8 @@
     "compile": "bun scripts/compile.ts",
     "package": "bun scripts/package.ts",
     "package:deb": "bun scripts/package.ts deb-amd64",
+    "package:smoke": "bun scripts/smoke-test.ts",
+    "monero:update": "bun scripts/monero-update.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test tests",
     "check": "biome check .",

@@ -58,4 +58,13 @@ describe("createPresence", () => {
     expect(onIdle).not.toHaveBeenCalled();
     second();
   });
+
+  test("reports running work", () => {
+    const presence = createPresence({ graceMs: GRACE_MS, onIdle: () => {} });
+    expect(presence.isBusy()).toBe(false);
+    const done = presence.begin();
+    expect(presence.isBusy()).toBe(true);
+    done();
+    expect(presence.isBusy()).toBe(false);
+  });
 });

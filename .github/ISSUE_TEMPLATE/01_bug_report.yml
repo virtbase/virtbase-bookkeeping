@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as expected
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Please remove customer data and API keys from anything you post here.
+  - type: input
+    attributes:
+      label: Version
+      description: Shown at the bottom left of the app.
+      placeholder: 0.4.0
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Description
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. Go to …
+        2. Click on …
+        3. See error: …
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: System and browser
+      placeholder: Debian 13, Firefox

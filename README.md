@@ -68,7 +68,7 @@ bun run start
 
 The app opens in the browser on a random local port. If it does not, open the link printed in the terminal. The link works once.
 
-The app stops by itself 2 minutes after the last tab closes, but never during a running sync or export. Starting it again while it runs opens a new tab in the running app. `BOOKKEEPING_IDLE_SECONDS` changes the wait. With `BOOKKEEPING_NO_OPEN=1` no browser opens and the app keeps running until you stop it.
+The app stops by itself 2 minutes after the last tab closes, but never during a running sync or export. Starting it again while it runs opens a new tab in the running app. After an update, the new version stops the old one and takes over, unless a sync or export is still running. `BOOKKEEPING_IDLE_SECONDS` changes the wait. With `BOOKKEEPING_NO_OPEN=1` no browser opens and the app keeps running until you stop it.
 
 To build a single binary:
 
@@ -202,6 +202,14 @@ To test without touching your real data, copy the database to the test home. If 
 ## Releases
 
 Releases come from commit messages. `feat:` raises the minor version and `fix:` the patch version, while the version is below 1.0. [release-please](https://github.com/googleapis/release-please) keeps a pull request open with the next version and changelog. Merging it creates the tag and the GitHub release, and CI attaches the `.deb` and its checksums.
+
+## Monero updates
+
+A weekly workflow checks for a new Monero release, verifies the signed `hashes.txt` with the key in `packaging/keys`, checks the download, runs the tests and opens a pull request. Merge it by hand. To run the same check locally, use `bun scripts/monero-update.ts`.
+
+## Contributing
+
+See [CONTRIBUTING](.github/CONTRIBUTING.md) and the [security policy](.github/SECURITY.md).
 
 ## License
 
