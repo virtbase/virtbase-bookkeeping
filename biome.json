@@ -12,6 +12,7 @@
     "includes": [
       "**",
       "!.vscode",
+      "!CHANGELOG.md",
       "!src/web/components/ui",
       "!src/web/favicon.svg"
     ]
