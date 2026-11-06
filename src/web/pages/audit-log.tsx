@@ -67,6 +67,7 @@ export function AuditLogPage() {
         enableSorting: false,
         header: ({ table }) => (
           <Checkbox
+            className="translate-y-0.5"
             aria-label="Alle Einträge auswählen"
             checked={
               table.getIsAllRowsSelected() ||
@@ -79,6 +80,7 @@ export function AuditLogPage() {
         ),
         cell: ({ row }) => (
           <Checkbox
+            className="translate-y-0.5"
             aria-label="Eintrag auswählen"
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(value === true)}

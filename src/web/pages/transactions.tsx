@@ -289,6 +289,7 @@ export function TransactionsPage({
         header: ({ table }) => (
           <Checkbox
             aria-label="Alle bereiten Zeilen auswählen"
+            className="translate-y-0.5"
             checked={
               table.getIsAllRowsSelected() ||
               (table.getIsSomeRowsSelected() && "indeterminate")
@@ -301,6 +302,7 @@ export function TransactionsPage({
         cell: ({ row, table }) => (
           <Checkbox
             aria-label="Zeile auswählen"
+            className="translate-y-0.5"
             checked={row.getIsSelected()}
             disabled={!row.getCanSelect()}
             onCheckedChange={(value) => {
