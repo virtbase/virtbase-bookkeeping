@@ -72,7 +72,7 @@ function listBackups(directory: string): string[] {
   }
 }
 
-function assertIntact(path: string): void {
+export function assertIntact(path: string): void {
   const copy = new Database(path, { readonly: true });
   try {
     const row = copy.query("PRAGMA integrity_check").get() as {

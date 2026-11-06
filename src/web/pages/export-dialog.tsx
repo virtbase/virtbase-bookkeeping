@@ -3,6 +3,7 @@ import { formatSignedEuro } from "@shared/money.ts";
 import type { TransactionDto } from "@shared/types.ts";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Private } from "@/components/private";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,7 +73,7 @@ export function ExportDialog({
                 </span>
               </dt>
               <dd className="font-mono text-[13px]">
-                {formatSignedEuro(net(group.rows))}
+                <Private>{formatSignedEuro(net(group.rows))}</Private>
               </dd>
             </div>
           ))}

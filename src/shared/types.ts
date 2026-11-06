@@ -40,6 +40,18 @@ export interface SummaryDto {
   lexwareConfigured: boolean;
   moneroConfigured: boolean;
   backupFailed: boolean;
+  setupRequired: boolean;
+}
+
+export interface RestoreResultDto {
+  transactions: number;
+  exports: number;
+}
+
+export interface PreferencesDto {
+  theme: "light" | "dark" | null;
+  privacy: boolean;
+  tourPending: boolean;
 }
 
 export interface BackupStatusDto {

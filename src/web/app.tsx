@@ -2,22 +2,24 @@ import type { SummaryDto } from "@shared/types.ts";
 import { useCallback, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { Sidebar } from "@/components/sidebar";
+import { Tour } from "@/components/tour";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
+import { PreferencesProvider, usePreferences } from "@/lib/preferences";
 import { usePresence } from "@/lib/presence";
-import { useTheme } from "@/lib/theme";
 import { useRoute } from "@/lib/use-route";
 import { AuditLogPage } from "@/pages/audit-log";
 import { ExportsPage } from "@/pages/exports";
 import { SettingsPage } from "@/pages/settings";
+import { SetupWizard } from "@/pages/setup-wizard";
 import { StatisticsPage } from "@/pages/statistics";
 import { TransactionsPage } from "@/pages/transactions";
 
-export function App() {
+function Shell() {
   const route = useRoute();
-  const { dark, toggle } = useTheme();
-  usePresence();
+  const { dark, toggleTheme, preferences, update } = usePreferences();
   const [summary, setSummary] = useState<SummaryDto | null>(null);
+  usePresence();
 
   const refreshSummary = useCallback(async () => {
     setSummary(await api.summary());
@@ -27,6 +29,21 @@ export function App() {
     void refreshSummary();
   }, [refreshSummary]);
 
+  const toaster = (
+    <Toaster theme={dark ? "dark" : "light"} position="bottom-right" />
+  );
+
+  if (summary?.setupRequired) {
+    return (
+      <TooltipProvider>
+        <div className="flex min-h-screen bg-background text-foreground text-sm md:h-screen">
+          <SetupWizard summary={summary} onChanged={refreshSummary} />
+          {toaster}
+        </div>
+      </TooltipProvider>
+    );
+  }
+
   return (
     <TooltipProvider>
       <div className="flex min-h-screen bg-background text-foreground text-sm max-md:flex-col md:h-screen md:overflow-hidden">
@@ -34,7 +51,7 @@ export function App() {
           route={route}
           summary={summary}
           dark={dark}
-          onToggleTheme={toggle}
+          onToggleTheme={toggleTheme}
         />
         <main
           key={route}
@@ -50,8 +67,19 @@ export function App() {
             <SettingsPage summary={summary} onChanged={refreshSummary} />
           )}
         </main>
-        <Toaster theme={dark ? "dark" : "light"} position="bottom-right" />
+        {summary && preferences.tourPending && route === "transaktionen" && (
+          <Tour onClose={() => update({ tourPending: false })} />
+        )}
+        {toaster}
       </div>
     </TooltipProvider>
+  );
+}
+
+export function App() {
+  return (
+    <PreferencesProvider>
+      <Shell />
+    </PreferencesProvider>
   );
 }

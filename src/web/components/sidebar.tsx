@@ -4,6 +4,8 @@ import {
   Archive,
   ChartNoAxesColumn,
   Cog,
+  Eye,
+  EyeOff,
   List,
   Moon,
   ScrollText,
@@ -11,7 +13,14 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { VirtbaseIcon } from "@/components/icons";
+import { Private } from "@/components/private";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { usePrivacy } from "@/lib/preferences";
 import type { Route } from "@/lib/use-route";
 import { cn } from "@/lib/utils";
 import { version } from "../../../package.json";
@@ -32,6 +41,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
+  const privacy = usePrivacy();
   return (
     <nav
       aria-label="Hauptnavigation"
@@ -51,9 +61,11 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
           Stripe-Guthaben
         </div>
         <div className="font-medium text-xl tabular-nums leading-7">
-          {summary?.balanceCents == null
-            ? "—"
-            : formatEuro(summary.balanceCents)}
+          {summary?.balanceCents == null ? (
+            "—"
+          ) : (
+            <Private>{formatEuro(summary.balanceCents)}</Private>
+          )}
         </div>
       </div>
       <div className="flex flex-col gap-0.5">
@@ -61,9 +73,10 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
           <a
             key={target}
             href={`#/${target}`}
+            data-tour={`nav-${target}`}
             aria-current={route === target ? "page" : undefined}
             className={cn(
-              "flex h-9 items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted",
+              "flex h-9 items-center gap-2.5 rounded-md px-2 text-sm hover:bg-muted data-tour-active:bg-muted data-tour-active:font-medium data-tour-active:text-foreground",
               route === target
                 ? "bg-muted font-medium"
                 : "text-muted-foreground",
@@ -97,14 +110,34 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
         <span className="text-muted-foreground text-xs tabular-nums">
           v{version}
         </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Farbschema wechseln"
-          onClick={onToggleTheme}
-        >
-          {dark ? <Sun /> : <Moon />}
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                data-tour="privacy"
+                className="data-tour-active:bg-muted"
+                aria-label="Privatmodus"
+                aria-pressed={privacy.enabled}
+                onClick={privacy.toggle}
+              >
+                {privacy.enabled ? <EyeOff /> : <Eye />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Privatmodus {privacy.enabled ? "aus" : "ein"} (Alt+P)
+            </TooltipContent>
+          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Farbschema wechseln"
+            onClick={onToggleTheme}
+          >
+            {dark ? <Sun /> : <Moon />}
+          </Button>
+        </div>
       </div>
     </nav>
   );

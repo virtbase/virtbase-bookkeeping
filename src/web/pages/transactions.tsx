@@ -31,6 +31,7 @@ import {
 } from "@/components/data-table/data-table";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { Private } from "@/components/private";
 import { StatusBadge, type Tone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { countLabel, formatStamp, rowLabel } from "@/lib/format";
+import { usePrivacy } from "@/lib/preferences";
 import { selectedVisibleRows } from "@/lib/selection";
 import { SOURCES } from "@/lib/sources";
 import { ExportDialog } from "@/pages/export-dialog";
@@ -110,6 +112,7 @@ export function TransactionsPage({
     { id: "occurredAt", desc: true },
   ]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
+  const { mask } = usePrivacy();
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -319,7 +322,7 @@ export function TransactionsPage({
             }
             onClick={() => setOpenId(row.original.id)}
           >
-            {row.original.name ?? "Name fehlt"}
+            {row.original.name ? mask(row.original.name) : "Name fehlt"}
           </button>
         ),
       },
@@ -329,8 +332,11 @@ export function TransactionsPage({
         enableSorting: false,
         header: "Verwendungszweck",
         cell: ({ row }) => (
-          <span className="text-muted-foreground" title={row.original.purpose}>
-            {row.original.purpose}
+          <span
+            className="text-muted-foreground"
+            title={mask(row.original.purpose)}
+          >
+            <Private>{row.original.purpose}</Private>
           </span>
         ),
       },
@@ -342,7 +348,7 @@ export function TransactionsPage({
         ),
         cell: ({ row }) => (
           <div className="text-right font-mono text-[13px] tabular-nums">
-            {formatSignedEuro(row.original.amountCents)}
+            <Private>{formatSignedEuro(row.original.amountCents)}</Private>
           </div>
         ),
       },
@@ -393,7 +399,7 @@ export function TransactionsPage({
         },
       },
     ],
-    [setIgnored],
+    [setIgnored, mask],
   );
 
   const table = useTable({
@@ -462,7 +468,10 @@ export function TransactionsPage({
 
   return (
     <>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div
+        data-tour="toolbar"
+        className="flex shrink-0 flex-wrap items-center gap-2"
+      >
         <div className="relative">
           <Search
             className="absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
@@ -551,6 +560,7 @@ export function TransactionsPage({
               moneroRunning ||
               !(summary?.stripeConfigured || summary?.moneroConfigured)
             }
+            data-tour="sync"
             onClick={() => void sync(false)}
           >
             <RefreshCw
@@ -595,7 +605,7 @@ export function TransactionsPage({
             className="data-[orientation=vertical]:h-5"
           />
           <span className="px-2 font-mono text-[13px] tabular-nums">
-            {formatSignedEuro(net)}
+            <Private>{formatSignedEuro(net)}</Private>
           </span>
           <Button
             variant="ghost"

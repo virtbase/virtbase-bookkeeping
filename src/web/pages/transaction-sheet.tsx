@@ -31,6 +31,7 @@ import {
 import { api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
 import { formatDay, formatIsoDay, formatStamp } from "@/lib/format";
+import { usePrivacy } from "@/lib/preferences";
 import { cn } from "@/lib/utils";
 
 interface TransactionSheetProps {
@@ -354,6 +355,9 @@ export function TransactionSheet({
 }: TransactionSheetProps) {
   const editable = row?.status === "review";
   const isMonero = row?.source === "monero";
+  const privacy = usePrivacy();
+  const [revealedId, setRevealedId] = useState<string | null>(null);
+  const hidden = privacy.enabled && row !== null && revealedId !== row.id;
 
   return (
     <Sheet
@@ -365,7 +369,21 @@ export function TransactionSheet({
       }}
     >
       <SheetContent className="gap-4 overflow-y-auto p-5 sm:max-w-md">
-        {row && (
+        {row && hidden && (
+          <>
+            <SheetHeader className="p-0">
+              <SheetTitle>Details verborgen</SheetTitle>
+              <SheetDescription>
+                Der Privatmodus ist aktiv. Name und Beträge dieser Zeile sind
+                ausgeblendet.
+              </SheetDescription>
+            </SheetHeader>
+            <Button variant="outline" onClick={() => setRevealedId(row.id)}>
+              Diese Zeile anzeigen
+            </Button>
+          </>
+        )}
+        {row && !hidden && (
           <>
             <SheetHeader className="p-0">
               <SheetTitle>

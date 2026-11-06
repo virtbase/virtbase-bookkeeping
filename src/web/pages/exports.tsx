@@ -19,6 +19,7 @@ import { type AppColumn, DataTable } from "@/components/data-table/data-table";
 import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { Private } from "@/components/private";
 import { StatusBadge, type Tone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -153,7 +154,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
         header: () => <div className="text-right">Saldo</div>,
         cell: ({ row }) => (
           <div className="text-right font-mono text-[13px]">
-            {formatSignedEuro(row.original.netCents)}
+            <Private>{formatSignedEuro(row.original.netCents)}</Private>
           </div>
         ),
       },

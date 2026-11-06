@@ -28,6 +28,7 @@ import {
   FileSpreadsheet,
   Flag,
   FolderOpen,
+  GraduationCap,
   RotateCcw,
   Server,
   TextCursorInput,
@@ -82,6 +83,7 @@ import {
 import { ApiError, api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
 import { countLabel, formatBytes, formatStamp } from "@/lib/format";
+import { usePreferences } from "@/lib/preferences";
 import { DangerZone } from "@/pages/danger-zone";
 import { MoneroWalletSection, NodeList } from "@/pages/monero-settings";
 import { PurposeSheet } from "@/pages/purpose-sheet";
@@ -115,7 +117,7 @@ function Choice<T extends string>({
   );
 }
 
-function SecretField({
+export function SecretField({
   name,
   label,
   placeholder,
@@ -397,6 +399,7 @@ function GeneralForm({
   initial: SettingsDto;
   onChanged: () => Promise<void>;
 }) {
+  const { update } = usePreferences();
   const [picking, setPicking] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [placeholderKey, setPlaceholderKey] = useState<PurposeKey | null>(null);
@@ -712,6 +715,22 @@ function GeneralForm({
           onChange={setBackupStatus}
           onChanged={onChanged}
         />
+      </Section>
+
+      <Section title="Einführung" icon={GraduationCap}>
+        <div className="flex">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              update({ tourPending: true });
+              window.location.hash = "#/transaktionen";
+            }}
+          >
+            Einführung starten
+          </Button>
+        </div>
       </Section>
 
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>

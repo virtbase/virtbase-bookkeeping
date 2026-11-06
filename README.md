@@ -37,12 +37,17 @@ Never run `strip` on the binary, it breaks the app. For this reason the package 
 
 ## First run
 
-In **Einstellungen**:
+A new install starts with a short setup: Stripe key, what is already booked in Lexware, export folder and account names, then optional keys. The start point matters most, because Stripe delivers 24 months and everything older than this point counts as exported. A short tutorial follows, and you can start it again under **Einstellungen**.
 
-1. Add a restricted Stripe key with read access to Balance, Balance Transactions, Charges, Customers, Disputes, Payouts and Refunds.
-2. Set **Bereits in Lexware bis** to the last day that is already booked. Older rows count as exported.
-3. Set **Gebühren gebucht bis** to the last month with booked fee rows.
-4. Add a Lexware API key to get invoice suggestions for Monero payments.
+Use a restricted Stripe key with read access to Balance, Balance Transactions, Charges, Customers, Disputes, Payouts and Refunds.
+
+The first screen also offers **Aus Sicherung wiederherstellen**. Pick a file from the backup folder and the wizard continues with its data and settings filled in. Enter the keys again and check the folders, because a backup keeps the export folder it was made with. Older backups are upgraded, and this works only during setup, so it can never overwrite a running install.
+
+Existing installs skip the setup. "Datenbank zurücksetzen" shows it again.
+
+## Privacy mode
+
+The eye icon next to the theme toggle, or `Alt+P`, hides amounts, customer names and purposes. They are replaced in the page, not blurred, so screenshots and screen sharing do not show them. Click a value to show it for 10 seconds. Charts keep their shape, and the transaction details ask once per row. The mode stays on after a restart. Exported files always contain the real data.
 
 ## Monero
 
@@ -76,7 +81,7 @@ The app keeps the 10 newest copies, one per day for 14 days and one per month fo
 
 Backups do not contain API keys, the Monero wallet or exported CSV files. After a restore on a new computer, enter the keys again and set up the wallet.
 
-To restore a copy, first close every tab and wait until the app has stopped. Then run this with the file you want:
+On a new install, restore in the setup wizard. To go back to an older copy on a running install, first close every tab and wait until the app has stopped. Then run this with the file you want:
 
 ```bash
 cd ~/Bookkeeping

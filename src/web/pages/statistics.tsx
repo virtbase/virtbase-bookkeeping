@@ -25,7 +25,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   type AppColumn,
@@ -35,6 +35,7 @@ import {
 import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { Private } from "@/components/private";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -159,8 +160,8 @@ function Tile({
   icon: Icon,
 }: {
   label: string;
-  value: string;
-  hint: string;
+  value: ReactNode;
+  hint: ReactNode;
   icon: LucideIcon;
 }) {
   return (
@@ -181,7 +182,7 @@ function Tile({
 function euroCell(cents: number | null) {
   return (
     <div className="text-right font-mono text-[13px]">
-      {cents === null ? "—" : signedEuro(cents)}
+      {cents === null ? "—" : <Private>{signedEuro(cents)}</Private>}
     </div>
   );
 }
@@ -421,25 +422,39 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
         <Tile
           label="Umsatz brutto"
           icon={Euro}
-          value={signedEuro(totals.revenueCents)}
-          hint={comparison(totals.revenueCents, previous.revenueCents)}
+          value={<Private>{signedEuro(totals.revenueCents)}</Private>}
+          hint={
+            <Private>
+              {comparison(totals.revenueCents, previous.revenueCents)}
+            </Private>
+          }
         />
         <Tile
           label="Gebühren"
           icon={Receipt}
-          value={formatEuro(totals.feeCents)}
-          hint={feeShare(totals.feeCents, totals.revenueCents)}
+          value={<Private>{formatEuro(totals.feeCents)}</Private>}
+          hint={
+            <Private>{feeShare(totals.feeCents, totals.revenueCents)}</Private>
+          }
         />
         <Tile
           label="Netto nach Gebühren"
           icon={Wallet}
-          value={signedEuro(totals.netCents)}
-          hint={comparison(totals.netCents, previous.netCents)}
+          value={<Private>{signedEuro(totals.netCents)}</Private>}
+          hint={
+            <Private>{comparison(totals.netCents, previous.netCents)}</Private>
+          }
         />
         <Tile
           label={forecast ? `Prognose bis ${forecast.untilLabel}` : "Prognose"}
           icon={TrendingUp}
-          value={forecast ? formatEuro(forecast.totalCents) : "—"}
+          value={
+            forecast ? (
+              <Private>{formatEuro(forecast.totalCents)}</Private>
+            ) : (
+              "—"
+            )
+          }
           hint={
             forecast
               ? `Nächste ${forecast.horizon} ${PERIOD_UNITS[granularity]}`

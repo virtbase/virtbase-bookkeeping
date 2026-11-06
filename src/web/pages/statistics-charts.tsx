@@ -18,6 +18,7 @@ import {
   XAxis,
   YAxis,
 } from "@/components/ui/chart";
+import { usePrivacy } from "@/lib/preferences";
 
 interface ChartRow {
   key: string;
@@ -217,6 +218,7 @@ export function RevenueChart({
   title,
 }: RevenueChartProps) {
   const { allGroups, buckets, groups, forecast } = statistics;
+  const { mask } = usePrivacy();
   const keys = groups.map((group) => seriesKey(allGroups, group.name));
   const config: ChartConfig = Object.fromEntries(
     groups.map((group) => [
@@ -250,7 +252,7 @@ export function RevenueChart({
           items={[
             ...groups.map((group) => ({
               label: group.name,
-              value: formatEuro(group.totalCents),
+              value: mask(formatEuro(group.totalCents)),
               color: chartColor(allGroups, group.name),
             })),
             ...(forecast
@@ -281,7 +283,7 @@ export function RevenueChart({
             tickMargin={8}
           />
           <YAxis
-            tickFormatter={axisEuro}
+            tickFormatter={(cents) => mask(axisEuro(cents))}
             tickLine={false}
             axisLine={false}
             width="auto"
@@ -306,7 +308,7 @@ export function RevenueChart({
                         <TooltipLine
                           key={key}
                           label={group.name}
-                          value={signedEuro(Number(row[key] ?? 0))}
+                          value={mask(signedEuro(Number(row[key] ?? 0)))}
                         >
                           <Swatch color={chartColor(allGroups, group.name)} />
                         </TooltipLine>
@@ -316,13 +318,13 @@ export function RevenueChart({
                     <TooltipLine
                       strong
                       label="Gesamt"
-                      value={signedEuro(total)}
+                      value={mask(signedEuro(total))}
                     />
                   )}
                   {row.forecast !== null && (
                     <TooltipLine
                       label="Prognose"
-                      value={signedEuro(row.forecast)}
+                      value={mask(signedEuro(row.forecast))}
                     >
                       <Swatch color={FORECAST_COLOR} faded />
                     </TooltipLine>
@@ -371,6 +373,7 @@ export function RevenueChart({
 }
 
 export function ProductChart({ statistics }: { statistics: Statistics }) {
+  const { mask } = usePrivacy();
   const data = statistics.products.filter((item) => item.totalCents > 0);
   const config: ChartConfig = {
     totalCents: { label: "Umsatz", color: "var(--chart-7)" },
@@ -410,7 +413,7 @@ export function ProductChart({ statistics }: { statistics: Statistics }) {
                   <TooltipBox title={item.name}>
                     <TooltipLine
                       label="Umsatz"
-                      value={signedEuro(item.totalCents)}
+                      value={mask(signedEuro(item.totalCents))}
                     />
                   </TooltipBox>
                 ) : null;
@@ -426,7 +429,7 @@ export function ProductChart({ statistics }: { statistics: Statistics }) {
               <LabelList
                 dataKey="totalCents"
                 position="right"
-                formatter={(value) => formatEuro(Number(value))}
+                formatter={(value) => mask(formatEuro(Number(value)))}
                 className="fill-foreground font-mono"
               />
             </Bar>
@@ -438,6 +441,7 @@ export function ProductChart({ statistics }: { statistics: Statistics }) {
 }
 
 export function FeeChart({ statistics }: { statistics: Statistics }) {
+  const { mask } = usePrivacy();
   const data: ChartRow[] = statistics.buckets
     .filter((bucket) => !bucket.projected)
     .map((bucket) => ({
@@ -466,7 +470,7 @@ export function FeeChart({ statistics }: { statistics: Statistics }) {
         <Legend
           items={FEE_SERIES.map((series) => ({
             label: series.label,
-            value: formatEuro(sum(series.key)),
+            value: mask(formatEuro(sum(series.key))),
             color: series.color,
           }))}
         />
@@ -484,7 +488,7 @@ export function FeeChart({ statistics }: { statistics: Statistics }) {
             tickMargin={8}
           />
           <YAxis
-            tickFormatter={axisEuro}
+            tickFormatter={(cents) => mask(axisEuro(cents))}
             tickLine={false}
             axisLine={false}
             width="auto"
@@ -499,7 +503,7 @@ export function FeeChart({ statistics }: { statistics: Statistics }) {
                     <TooltipLine
                       key={series.key}
                       label={series.label}
-                      value={formatEuro(Number(row[series.key] ?? 0))}
+                      value={mask(formatEuro(Number(row[series.key] ?? 0)))}
                     >
                       <Swatch color={series.color} />
                     </TooltipLine>

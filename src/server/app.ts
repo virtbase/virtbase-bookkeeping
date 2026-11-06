@@ -7,13 +7,16 @@ import * as z from "zod";
 import {
   lexwareKeySchema,
   moneroWalletSchema,
+  preferencesSchema,
   settingsSchema,
+  setupSchema,
   stripeKeySchema,
 } from "../shared/schemas.ts";
 import type {
   AuditExportDto,
   FolderChoiceDto,
   InvoiceLookupDto,
+  SettingsDto,
   SummaryDto,
   TestResultDto,
 } from "../shared/types.ts";
@@ -48,9 +51,19 @@ import {
   statusOf,
 } from "./queries.ts";
 import { resetEverything, resetExports } from "./reset.ts";
+import { restoreBackup } from "./restore.ts";
 import type { SecretStore } from "./secrets.ts";
 import { guard, type SessionState, securityHeaders } from "./security.ts";
-import { readSettings, readSyncMarks, writeSettings } from "./settings.ts";
+import {
+  isSetupComplete,
+  markSetupComplete,
+  readPreferences,
+  readSettings,
+  readSyncMarks,
+  wasRestored,
+  writePreferences,
+  writeSettings,
+} from "./settings.ts";
 import { type BalanceReader, StripeClient } from "./stripe/client.ts";
 import { refreshFeeRows, syncStripe } from "./stripe/sync.ts";
 import { localDay } from "./time.ts";
@@ -172,6 +185,7 @@ export function createApp(dependencies: AppDependencies): Hono {
       lexwareConfigured: Boolean(stored.lexwareKey),
       moneroConfigured: moneroSync.status().configured,
       backupFailed: backups.error !== null,
+      setupRequired: !isSetupComplete(db),
     };
     return context.json(summary);
   });
@@ -422,8 +436,11 @@ export function createApp(dependencies: AppDependencies): Hono {
     return context.json(result);
   });
 
-  app.put("/api/settings", async (context) => {
-    const next = settingsSchema.parse(await context.req.json());
+  const applySettings = (input: SettingsDto): SettingsDto => {
+    const next =
+      input.backupDir === backups.status().defaultDirectory
+        ? { ...input, backupDir: "" }
+        : input;
     try {
       mkdirSync(next.exportDir, { recursive: true });
     } catch {
@@ -449,6 +466,46 @@ export function createApp(dependencies: AppDependencies): Hono {
     if (backupDirChanged) {
       backups.runIfDue();
     }
+    return next;
+  };
+
+  app.put("/api/settings", async (context) => {
+    const next = settingsSchema.parse(await context.req.json());
+    return context.json(applySettings(next));
+  });
+
+  app.post("/api/setup/complete", async (context) => {
+    const { nothingBooked, ...next } = setupSchema.parse(
+      await context.req.json(),
+    );
+    if (!secrets.read().stripeKey) {
+      throw new ExportError("Bitte zuerst den Stripe-Schlüssel speichern.");
+    }
+    applySettings(
+      nothingBooked
+        ? { ...next, baselineDate: "", feesClosedThrough: "" }
+        : next,
+    );
+    const tourPending = !wasRestored(db);
+    markSetupComplete(db, now());
+    writePreferences(db, { ...readPreferences(db), tourPending });
+    audit(db, "setup.complete", {});
+    return context.json({ tourPending });
+  });
+
+  app.post("/api/setup/restore", async (context) => {
+    const file = new Uint8Array(await context.req.arrayBuffer());
+    return context.json(restoreBackup(db, paths, file, now()));
+  });
+
+  app.get("/api/preferences", (context) => context.json(readPreferences(db)));
+
+  app.put("/api/preferences", async (context) => {
+    const next = {
+      ...readPreferences(db),
+      ...preferencesSchema.parse(await context.req.json()),
+    };
+    writePreferences(db, next);
     return context.json(next);
   });
 

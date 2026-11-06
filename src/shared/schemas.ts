@@ -164,5 +164,36 @@ export const moneroFormSchema = z.object({
   rate: positiveEuro,
 });
 
+export const preferencesSchema = z
+  .object({
+    theme: z.enum(["light", "dark"]).nullable(),
+    privacy: z.boolean(),
+    tourPending: z.boolean(),
+  })
+  .partial();
+
+export const setupSchema = settingsSchema
+  .extend({ nothingBooked: z.boolean() })
+  .superRefine((value, context) => {
+    if (value.nothingBooked) {
+      return;
+    }
+    if (!value.baselineDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["baselineDate"],
+        message: "Bitte den letzten gebuchten Zeitpunkt wählen.",
+      });
+    }
+    if (!value.feesClosedThrough) {
+      context.addIssue({
+        code: "custom",
+        path: ["feesClosedThrough"],
+        message: "Bitte den letzten gebuchten Monat wählen.",
+      });
+    }
+  });
+
+export type SetupForm = z.infer<typeof setupSchema>;
 export type MoneroForm = z.infer<typeof moneroFormSchema>;
 export type SecretForm = z.infer<typeof stripeKeySchema>;

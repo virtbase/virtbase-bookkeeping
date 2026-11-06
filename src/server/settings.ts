@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../shared/purpose.ts";
-import type { SettingsDto } from "../shared/types.ts";
+import type { PreferencesDto, SettingsDto } from "../shared/types.ts";
 import {
   DEFAULT_ACCOUNTS,
   DEFAULT_MONERO_NODES,
@@ -15,6 +15,9 @@ const LAST_SYNC_KEY = "stripe.lastSyncAt";
 const SYNC_FROM_KEY = "stripe.syncedFrom";
 const BALANCE_KEY = "stripe.balanceCents";
 const MONERO_KEY = "monero.wallet";
+const PREFERENCES_KEY = "preferences";
+const SETUP_KEY = "setup.completedAt";
+const RESTORED_KEY = "setup.restoredAt";
 
 function readValue(db: Db, key: string): string | null {
   return (
@@ -63,6 +66,42 @@ export function readSettings(db: Db, defaultExportDir: string): SettingsDto {
       ...saved.purposeTemplates,
     },
   };
+}
+
+export function readPreferences(db: Db): PreferencesDto {
+  const stored = readValue(db, PREFERENCES_KEY);
+  return {
+    theme: null,
+    privacy: false,
+    tourPending: false,
+    ...(stored ? (JSON.parse(stored) as Partial<PreferencesDto>) : {}),
+  };
+}
+
+export function writePreferences(db: Db, value: PreferencesDto): void {
+  writeValue(db, PREFERENCES_KEY, JSON.stringify(value));
+}
+
+export function isSetupComplete(db: Db): boolean {
+  return readValue(db, SETUP_KEY) !== null;
+}
+
+export function markSetupComplete(db: Db, now: number): void {
+  writeValue(db, SETUP_KEY, String(now));
+}
+
+export function markRestored(db: Db, now: number): void {
+  writeValue(db, RESTORED_KEY, String(now));
+}
+
+export function wasRestored(db: Db): boolean {
+  return readValue(db, RESTORED_KEY) !== null;
+}
+
+export function clearRestoredState(db: Db): void {
+  db.delete(settings)
+    .where(inArray(settings.key, [SETUP_KEY, MONERO_KEY]))
+    .run();
 }
 
 export function writeSettings(db: Db, value: SettingsDto): void {

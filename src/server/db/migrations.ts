@@ -100,4 +100,10 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE export_batches ADD COLUMN account TEXT NOT NULL DEFAULT '';
   `,
+  `
+  INSERT INTO settings (key, value)
+    SELECT 'setup.completedAt', CAST(strftime('%s', 'now') AS TEXT)
+    WHERE EXISTS (SELECT 1 FROM transactions)
+      OR EXISTS (SELECT 1 FROM settings);
+  `,
 ];

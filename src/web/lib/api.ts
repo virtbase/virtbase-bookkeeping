@@ -1,4 +1,4 @@
-import type { MoneroWalletForm } from "@shared/schemas.ts";
+import type { MoneroWalletForm, SetupForm } from "@shared/schemas.ts";
 import type { StatisticsDto } from "@shared/statistics.ts";
 import type {
   AuditEventDto,
@@ -10,6 +10,8 @@ import type {
   InvoiceLookupDto,
   MoneroImportResultDto,
   MoneroStatusDto,
+  PreferencesDto,
+  RestoreResultDto,
   SettingsDto,
   SummaryDto,
   SyncResultDto,
@@ -81,6 +83,17 @@ export const api = {
   removeMonero: () =>
     request<MoneroStatusDto>("monero/wallet", { method: "DELETE" }),
   audit: () => request<AuditEventDto[]>("audit"),
+  preferences: () => request<PreferencesDto>("preferences"),
+  savePreferences: (patch: Partial<PreferencesDto>) =>
+    request<PreferencesDto>("preferences", json("PUT", patch)),
+  completeSetup: (values: SetupForm) =>
+    request<{ tourPending: boolean }>("setup/complete", json("POST", values)),
+  restoreBackup: (file: File) =>
+    request<RestoreResultDto>("setup/restore", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+    }),
   backups: () => request<BackupStatusDto>("backups"),
   createBackup: () => request<BackupStatusDto>("backups", { method: "POST" }),
   statistics: () => request<StatisticsDto>("statistics"),
