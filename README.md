@@ -1,8 +1,65 @@
-# Virtbase Bookkeeping
+<p align="center">
+  <img src="packaging/icons/256.png" alt="Virtbase logo" width="88" height="88">
+</p>
 
-Local app that turns Stripe and Monero payments into Lexware CSV imports and keeps a ledger of what was exported.
+<h1 align="center">Virtbase Bookkeeping</h1>
 
-## Start
+<p align="center">
+  Turn Stripe and Monero payments into Lexware Office CSV imports, and always know what was already exported.
+  <br />
+  <br />
+  <a href="#quick-start"><strong>Quick start</strong></a> ·
+  <a href="#features"><strong>Features</strong></a> ·
+  <a href="#screenshots"><strong>Screenshots</strong></a> ·
+  <a href="#development"><strong>Development</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/virtbase/virtbase-bookkeeping/actions/workflows/ci.yml"><img src="https://github.com/virtbase/virtbase-bookkeeping/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/runtime-Bun-black?logo=bun" alt="Runs on Bun">
+  <img src="https://img.shields.io/badge/platform-Linux%20x64-informational?logo=linux&logoColor=white" alt="Linux x64">
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/transactions-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset=".github/assets/transactions-light.png">
+    <img src=".github/assets/transactions-light.png" alt="Transaction table with month-end hint and CSV export" width="900">
+  </picture>
+</p>
+
+<p align="center"><sub>All screenshots show made-up sample data. The app's interface is in German.</sub></p>
+
+## Features
+
+- **Stripe and Monero in one table.** Stripe syncs through a restricted read-only key, and Monero through a bundled view-only wallet or a CSV import.
+- **Lexware Office CSV export.** One file per account, and every exported row is tracked so nothing gets booked twice.
+- **Month-end fees.** Stripe and PayPal fees are calculated per month, match the invoices to the cent, and a hint tells you when a month is open.
+- **Statistics.** Revenue by source, account and product, fees, and a simple forecast.
+- **Backups.** Automatic, verified database backups, with restore during setup.
+- **Privacy mode.** Hides amounts and names for screenshots and screen sharing.
+- **Fast by keyboard.** `Ctrl+K` search, shortcuts with visible hints, and copy buttons where you need them.
+- **Local by design.** Your data stays on your computer in a local database, and the server only listens on `127.0.0.1`.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src=".github/assets/statistics.png" alt="Statistics with revenue chart, fees and forecast"><p align="center"><sub>Statistics and forecast</sub></p></td>
+    <td width="50%"><img src=".github/assets/search.png" alt="Global search with Ctrl+K"><p align="center"><sub>Global search</sub></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/assets/privacy.png" alt="Privacy mode with hidden amounts and names"><p align="center"><sub>Privacy mode</sub></p></td>
+    <td width="50%"><img src=".github/assets/setup.png" alt="Setup wizard asking what is already booked in Lexware"><p align="center"><sub>Guided setup</sub></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/assets/exports.png" alt="Export history with account, row count, balance and status"><p align="center"><sub>Export history</sub></p></td>
+    <td width="50%"><img src=".github/assets/settings.png" alt="Settings for export folder, Lexware accounts and backups"><p align="center"><sub>Settings</sub></p></td>
+  </tr>
+</table>
+
+## Quick start
 
 ```bash
 bun install
