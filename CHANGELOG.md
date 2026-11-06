@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.4.0...v0.5.0) (2026-11-06)
+
+
+### Features
+
+* expand builds to more platforms ([70ac871](https://github.com/virtbase/virtbase-bookkeeping/commit/70ac8715b193aac748e168d94bc07156d1b3da6d))
+
 ## [0.4.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.3.0...v0.4.0) (2026-11-06)
 
 
