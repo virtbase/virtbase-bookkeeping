@@ -26,6 +26,8 @@ interface ChartRow {
   partial: boolean;
   projected: boolean;
   forecast: number | null;
+  low: number | null;
+  high: number | null;
   [series: string]: string | number | boolean | null;
 }
 
@@ -209,9 +211,10 @@ export const PERIOD_UNITS: Record<Granularity, string> = {
 interface RevenueChartProps {
   statistics: Statistics;
   title: string;
+  note?: string;
 }
 
-export function RevenueChart({ statistics, title }: RevenueChartProps) {
+export function RevenueChart({ statistics, title, note }: RevenueChartProps) {
   const { allGroups, buckets, groups, forecast } = statistics;
   const { mask } = usePrivacy();
   const keys = groups.map((group) => seriesKey(allGroups, group.name));
@@ -228,6 +231,8 @@ export function RevenueChart({ statistics, title }: RevenueChartProps) {
     partial: bucket.partial,
     projected: bucket.projected,
     forecast: bucket.forecastCents,
+    low: bucket.lowCents,
+    high: bucket.highCents,
     [FORECAST_SERIES]: forecastRest(bucket),
     ...(bucket.projected
       ? {}
@@ -256,7 +261,10 @@ export function RevenueChart({ statistics, title }: RevenueChartProps) {
           ]}
         />
       }
-      footer={forecast ? undefined : NO_FORECAST}
+      footer={
+        [note, forecast ? undefined : NO_FORECAST].filter(Boolean).join(" ") ||
+        undefined
+      }
     >
       <ChartContainer config={config} className="aspect-auto h-72 w-full">
         <ComposedChart
@@ -319,6 +327,14 @@ export function RevenueChart({ statistics, title }: RevenueChartProps) {
                     >
                       <Swatch color={FORECAST_COLOR} faded />
                     </TooltipLine>
+                  )}
+                  {row.low !== null && row.high !== null && (
+                    <TooltipLine
+                      label="meist"
+                      value={mask(
+                        `${formatEuro(row.low)} – ${formatEuro(row.high)}`,
+                      )}
+                    />
                   )}
                 </TooltipBox>
               );
@@ -441,6 +457,8 @@ export function FeeChart({ statistics }: { statistics: Statistics }) {
       partial: bucket.partial,
       projected: false,
       forecast: null,
+      low: null,
+      high: null,
       stripe: bucket.stripeFeeCents,
       paypal: bucket.passthroughFeeCents,
     }));

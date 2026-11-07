@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { shiftMonth } from "../../shared/statistics.ts";
 import type { SettingsDto, SyncResultDto } from "../../shared/types.ts";
 import { audit } from "../audit.ts";
@@ -83,7 +84,10 @@ export async function syncStripe(
         .values({ ...mapped, createdAt: now })
         .onConflictDoUpdate({
           target: transactions.id,
-          set: { refundReason: mapped.refundReason },
+          set: {
+            refundReason: mapped.refundReason,
+            customerId: sql`coalesce(${transactions.customerId}, excluded.customer_id)`,
+          },
         })
         .run();
       added += known.has(mapped.id) ? 0 : 1;

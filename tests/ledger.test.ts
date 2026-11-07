@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { openDatabase } from "../src/server/db/client.ts";
+import { MIGRATIONS } from "../src/server/db/migrations.ts";
 import { transactions } from "../src/server/db/schema.ts";
 import {
   createExport as createExports,
@@ -19,6 +20,7 @@ import {
 } from "../src/server/export/service.ts";
 import { sumMonthFees } from "../src/server/fees.ts";
 import { listExports, listTransactions } from "../src/server/queries.ts";
+import { readSyncMarks, writeSyncMarks } from "../src/server/settings.ts";
 import type { BalanceReader } from "../src/server/stripe/client.ts";
 import type { BalanceTransaction } from "../src/server/stripe/mapping.ts";
 import { refreshFeeRows, syncStripe } from "../src/server/stripe/sync.ts";
@@ -119,6 +121,54 @@ describe("sync and fee rows", () => {
     const db = await seeded(config);
     const result = await syncStripe(db, reader(october), config, now + 60);
     expect(result).toEqual({ added: 0, feeRows: 0 });
+  });
+
+  test("fills in a missing customer ID but never replaces or clears it", async () => {
+    const config = settings();
+    const db = await seeded(config);
+    const withCustomer = (row: BalanceTransaction, customer: string) =>
+      ({
+        ...row,
+        source: { ...(row.source as object), customer },
+      }) as BalanceTransaction;
+    const [a, b] = october as [BalanceTransaction, BalanceTransaction];
+    await syncStripe(
+      db,
+      reader([withCustomer(a, "cus_a"), withCustomer(b, "cus_b")]),
+      config,
+      now + 60,
+    );
+    await syncStripe(
+      db,
+      reader([withCustomer(a, "cus_other"), b]),
+      config,
+      now + 120,
+    );
+    const ids = db
+      .select({ id: transactions.id, customerId: transactions.customerId })
+      .from(transactions)
+      .all()
+      .filter((row) => row.id.startsWith("txn_"));
+    expect(ids).toEqual([
+      { id: "txn_a", customerId: "cus_a" },
+      { id: "txn_b", customerId: "cus_b" },
+      { id: "txn_c", customerId: null },
+    ]);
+  });
+
+  test("an older database fetches the history again for customer IDs", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "bookkeeping-")), "b.sqlite");
+    const db = openDatabase(path);
+    writeSyncMarks(db, { lastSyncAt: now, syncedFrom: 1, balanceCents: 0 });
+    db.$client.run("ALTER TABLE transactions DROP COLUMN customer_id");
+    db.$client.run(`PRAGMA user_version = ${MIGRATIONS.length - 1}`);
+    db.$client.close();
+    const reopened = openDatabase(path);
+    expect(readSyncMarks(reopened)).toMatchObject({
+      syncedFrom: null,
+      lastSyncAt: now,
+    });
+    expect(reopened.select().from(transactions).all()).toEqual([]);
   });
 
   test("the baseline marks old rows as exported but keeps fee rows open", async () => {

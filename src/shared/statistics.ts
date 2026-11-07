@@ -1,8 +1,24 @@
 import { neutralizeField, quoteField } from "./csv.ts";
+import {
+  bucketRange,
+  dailyRevenue,
+  forecastBuckets,
+  forecastRange,
+} from "./forecast.ts";
+import type { Granularity } from "./periods.ts";
+import {
+  bucketKey,
+  bucketKeys,
+  daysBetween,
+  nextKey,
+  shiftDay,
+} from "./periods.ts";
 import type { Source } from "./types.ts";
 
-export type Granularity = "day" | "week" | "month";
-export type GroupBy = "source" | "account";
+export type { Granularity } from "./periods.ts";
+export { bucketKey, shiftDay, shiftMonth } from "./periods.ts";
+
+export type GroupBy = "source" | "account" | "customer";
 
 export interface StatRow {
   day: string;
@@ -14,6 +30,7 @@ export interface StatRow {
   passthroughFeeCents: number;
   product: string | null;
   payment: boolean;
+  customer: string | null;
 }
 
 export interface StatOptions {
@@ -35,6 +52,8 @@ export interface StatBucket {
   netCents: number;
   partial: boolean;
   forecastCents: number | null;
+  lowCents: number | null;
+  highCents: number | null;
   projected: boolean;
 }
 
@@ -48,12 +67,20 @@ export interface StatTotals {
   feeCents: number;
   netCents: number;
   payments: number;
+  paymentCents: number;
+}
+
+export interface StatCustomers {
+  new: number;
+  returning: number;
 }
 
 export interface StatForecast {
   basis: number;
   horizon: number;
   totalCents: number;
+  lowCents: number | null;
+  highCents: number | null;
   untilLabel: string;
 }
 
@@ -68,20 +95,11 @@ export interface Statistics {
   allGroups: string[];
   products: StatGroup[];
   totals: StatTotals;
-  previous: StatTotals;
+  previous: StatTotals | null;
+  customers: StatCustomers;
   forecast: StatForecast | null;
 }
 
-const MINIMUM_HISTORY: Record<Granularity, number> = {
-  day: 14,
-  week: 4,
-  month: 3,
-};
-const FORECAST_BASIS: Record<Granularity, number> = {
-  day: 28,
-  week: 12,
-  month: 12,
-};
 const FORECAST_HORIZON: Record<Granularity, number> = {
   day: 14,
   week: 6,
@@ -104,63 +122,6 @@ const MONTHS = [
   "Nov",
   "Dez",
 ];
-
-function toUtc(day: string): Date {
-  return new Date(`${day}T00:00:00Z`);
-}
-
-function toDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-export function shiftDay(day: string, days: number): string {
-  const date = toUtc(day);
-  date.setUTCDate(date.getUTCDate() + days);
-  return toDay(date);
-}
-
-export function shiftMonth(day: string, months: number): string {
-  const date = toUtc(`${day.slice(0, 7)}-01`);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  return toDay(date);
-}
-
-function daysBetween(from: string, to: string): number {
-  return Math.round((toUtc(to).getTime() - toUtc(from).getTime()) / 86400000);
-}
-
-export function bucketKey(day: string, granularity: Granularity): string {
-  if (granularity === "day") {
-    return day;
-  }
-  if (granularity === "month") {
-    return `${day.slice(0, 7)}-01`;
-  }
-  const weekday = (toUtc(day).getUTCDay() + 6) % 7;
-  return shiftDay(day, -weekday);
-}
-
-function nextKey(key: string, granularity: Granularity): string {
-  if (granularity === "day") {
-    return shiftDay(key, 1);
-  }
-  return granularity === "week" ? shiftDay(key, 7) : shiftMonth(key, 1);
-}
-
-function bucketKeys(
-  from: string,
-  to: string,
-  granularity: Granularity,
-): string[] {
-  const keys: string[] = [];
-  let key = bucketKey(from, granularity);
-  const last = bucketKey(to, granularity);
-  while (key <= last) {
-    keys.push(key);
-    key = nextKey(key, granularity);
-  }
-  return keys;
-}
 
 export function bucketLabel(key: string, granularity: Granularity): string {
   const [year = "", month = "1", day = ""] = key.split("-");
@@ -190,25 +151,51 @@ export function productLabel(text: string): string | null {
   return /^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$/.test(cleaned) ? cleaned : null;
 }
 
-export function linearForecast(values: number[], horizon: number): number[] {
-  const count = values.length;
-  const meanX = (count - 1) / 2;
-  const meanY = values.reduce((sum, value) => sum + value, 0) / count;
-  const spread = values.reduce((sum, _, x) => sum + (x - meanX) ** 2, 0);
-  const slope = spread
-    ? values.reduce((sum, y, x) => sum + (x - meanX) * (y - meanY), 0) / spread
-    : 0;
-  return Array.from({ length: horizon }, (_, step) =>
-    Math.max(0, Math.round(meanY + slope * (count + step - meanX))),
-  );
+export const NEW_CUSTOMERS = "Neu";
+export const RETURNING_CUSTOMERS = "Wiederkehrend";
+const REFUNDS = "Rückerstattungen";
+const UNNAMED = "Ohne Namen";
+const CUSTOMER_GROUPS = [NEW_CUSTOMERS, RETURNING_CUSTOMERS, REFUNDS, UNNAMED];
+
+function firstPayments(rows: StatRow[]): Map<string, string> {
+  const first = new Map<string, string>();
+  for (const row of rows) {
+    if (row.customer && row.revenueCents > 0) {
+      const seen = first.get(row.customer);
+      if (!seen || row.day < seen) {
+        first.set(row.customer, row.day);
+      }
+    }
+  }
+  return first;
 }
 
-function groupName(
-  row: StatRow,
-  groupBy: GroupBy,
-  labels: SourceLabels,
-): string {
-  return groupBy === "source" ? labels[row.source] : row.account;
+function customerGroup(row: StatRow, first: Map<string, string>): string {
+  if (row.revenueCents < 0) {
+    return REFUNDS;
+  }
+  if (!row.customer) {
+    return UNNAMED;
+  }
+  return first.get(row.customer) === row.day
+    ? NEW_CUSTOMERS
+    : RETURNING_CUSTOMERS;
+}
+
+function countCustomers(
+  rows: StatRow[],
+  first: Map<string, string>,
+  from: string,
+): StatCustomers {
+  const fresh = new Set<string>();
+  const known = new Set<string>();
+  for (const row of rows) {
+    const day = row.customer ? first.get(row.customer) : undefined;
+    if (row.customer && day && row.revenueCents > 0) {
+      (day >= from ? fresh : known).add(row.customer);
+    }
+  }
+  return { new: fresh.size, returning: known.size };
 }
 
 export type SourceLabels = Record<Source, string>;
@@ -227,6 +214,9 @@ function totalsOf(rows: StatRow[], from: string, to: string): StatTotals {
     feeCents,
     netCents: revenueCents - feeCents,
     payments: earned.filter((row) => row.payment).length,
+    paymentCents: earned
+      .filter((row) => row.payment)
+      .reduce((sum, row) => sum + row.revenueCents, 0),
   };
 }
 
@@ -260,27 +250,10 @@ function emptyBucket(key: string, granularity: Granularity): StatBucket {
     netCents: 0,
     partial: false,
     forecastCents: null,
+    lowCents: null,
+    highCents: null,
     projected: false,
   };
-}
-
-function completedTotals(
-  rows: StatRow[],
-  granularity: Granularity,
-  today: string,
-): number[] {
-  const earned = rows.filter((row) => row.revenueCents !== 0);
-  const firstDay = earned.map((row) => row.day).sort()[0] ?? today;
-  const current = bucketKey(today, granularity);
-  const sums = new Map<string, number>();
-  for (const row of earned) {
-    const key = bucketKey(row.day, granularity);
-    sums.set(key, (sums.get(key) ?? 0) + row.revenueCents);
-  }
-  return bucketKeys(firstDay, today, granularity)
-    .filter((key) => key < current)
-    .map((key) => sums.get(key) ?? 0)
-    .slice(-FORECAST_BASIS[granularity]);
 }
 
 export function buildStatistics(
@@ -289,16 +262,28 @@ export function buildStatistics(
   labels: SourceLabels,
 ): Statistics {
   const { from, to, granularity, groupBy, sources, today } = options;
-  const allGroups = [
-    ...new Set(
-      SOURCE_ORDER.flatMap((source) =>
-        rows
-          .filter((row) => row.source === source)
-          .map((row) => groupName(row, groupBy, labels))
-          .sort((a, b) => a.localeCompare(b, "de-DE")),
-      ),
-    ),
-  ];
+  const first = firstPayments(rows);
+  const groupName = (row: StatRow) => {
+    if (groupBy === "customer") {
+      return customerGroup(row, first);
+    }
+    return groupBy === "source" ? labels[row.source] : row.account;
+  };
+  const allGroups =
+    groupBy === "customer"
+      ? CUSTOMER_GROUPS.filter((name) =>
+          rows.some((row) => row.revenueCents !== 0 && groupName(row) === name),
+        )
+      : [
+          ...new Set(
+            SOURCE_ORDER.flatMap((source) =>
+              rows
+                .filter((row) => row.source === source)
+                .map(groupName)
+                .sort((a, b) => a.localeCompare(b, "de-DE")),
+            ),
+          ),
+        ];
   const scoped = rows.filter(
     (row) => sources.length === 0 || sources.includes(row.source),
   );
@@ -306,7 +291,17 @@ export function buildStatistics(
   const span = daysBetween(from, to);
   const previousTo = shiftDay(from, -1);
   const previousFrom = shiftDay(previousTo, -span);
-  const previous = totalsOf(scoped, previousFrom, previousTo);
+  const historyStart = scoped
+    .filter((row) => row.revenueCents !== 0)
+    .reduce<string | null>(
+      (earliest, row) =>
+        earliest === null || row.day < earliest ? row.day : earliest,
+      null,
+    );
+  const previous =
+    historyStart !== null && historyStart <= previousFrom
+      ? totalsOf(scoped, previousFrom, previousTo)
+      : null;
 
   const currentKey = bucketKey(today, granularity);
   const buckets = new Map(
@@ -318,7 +313,7 @@ export function buildStatistics(
   for (const row of inRange) {
     const bucket = buckets.get(bucketKey(row.day, granularity));
     if (bucket) {
-      const name = groupName(row, groupBy, labels);
+      const name = groupName(row);
       bucket.groups[name] = (bucket.groups[name] ?? 0) + row.revenueCents;
       bucket.totalCents += row.revenueCents;
       bucket.netCents += row.revenueCents;
@@ -340,32 +335,48 @@ export function buildStatistics(
     current.partial = true;
   }
 
-  const history = completedTotals(scoped, granularity, today);
   let forecast: StatForecast | null = null;
-  if (to >= today && history.length >= MINIMUM_HISTORY[granularity]) {
+  if (to >= today) {
     const horizon = FORECAST_HORIZON[granularity];
-    const projected = linearForecast(history, horizon + 1);
-    let key = currentKey;
-    let lastKey = currentKey;
-    for (const cents of projected) {
-      const bucket = buckets.get(key) ?? emptyBucket(key, granularity);
-      bucket.forecastCents = cents;
-      bucket.projected = key !== currentKey;
-      buckets.set(key, bucket);
-      lastKey = key;
-      key = nextKey(key, granularity);
+    const daily = dailyRevenue(scoped);
+    const plan = forecastBuckets(daily, today, granularity, horizon + 1);
+    if (plan) {
+      const spread = bucketRange(daily, today, granularity);
+      let key = currentKey;
+      let lastKey = currentKey;
+      for (const [step, cents] of plan.values.entries()) {
+        const bucket = buckets.get(key) ?? emptyBucket(key, granularity);
+        const earned = step === 0 ? plan.earned : 0;
+        bucket.forecastCents = cents;
+        bucket.lowCents = spread
+          ? Math.round(earned + (cents - earned) * spread.low)
+          : null;
+        bucket.highCents = spread
+          ? Math.round(earned + (cents - earned) * spread.high)
+          : null;
+        bucket.projected = step > 0;
+        buckets.set(key, bucket);
+        lastKey = key;
+        key = nextKey(key, granularity);
+      }
+      const totalCents = plan.values
+        .slice(1)
+        .reduce((sum, cents) => sum + cents, 0);
+      const range = forecastRange(daily, today, granularity, horizon);
+      forecast = {
+        basis: plan.basis,
+        horizon,
+        totalCents,
+        lowCents: range ? Math.round(totalCents * range.low) : null,
+        highCents: range ? Math.round(totalCents * range.high) : null,
+        untilLabel: bucketLabel(lastKey, granularity),
+      };
     }
-    forecast = {
-      basis: history.length,
-      horizon,
-      totalCents: projected.slice(1).reduce((sum, cents) => sum + cents, 0),
-      untilLabel: bucketLabel(lastKey, granularity),
-    };
   }
 
   const groupTotals = new Map<string, number>();
   for (const row of inRange) {
-    const name = groupName(row, groupBy, labels);
+    const name = groupName(row);
     groupTotals.set(name, (groupTotals.get(name) ?? 0) + row.revenueCents);
   }
 
@@ -378,6 +389,7 @@ export function buildStatistics(
     products: rankedProducts(inRange),
     totals: totalsOf(scoped, from, to),
     previous,
+    customers: countCustomers(inRange, first, from),
     forecast,
   };
 }

@@ -115,38 +115,72 @@ const REVENUE_KINDS = new Set([
 ]);
 const PAYMENT_KINDS = new Set(["charge", "payment", "incoming"]);
 
+function nameKey(name: string | null): string | null {
+  const key = name?.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE");
+  return key || null;
+}
+
+type CustomerRow = Pick<
+  typeof transactions.$inferSelect,
+  "name" | "customerId"
+>;
+
+function customerKeys(
+  rows: CustomerRow[],
+): (row: CustomerRow) => string | null {
+  const idsByName = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const name = nameKey(row.name);
+    if (name && row.customerId) {
+      const ids = idsByName.get(name) ?? new Set<string>();
+      ids.add(row.customerId);
+      idsByName.set(name, ids);
+    }
+  }
+  return (row) => {
+    if (row.customerId) {
+      return `id:${row.customerId}`;
+    }
+    const name = nameKey(row.name);
+    if (!name) {
+      return null;
+    }
+    const ids = idsByName.get(name);
+    const [only] = ids ?? [];
+    return ids?.size === 1 && only ? `id:${only}` : `name:${name}`;
+  };
+}
+
 export function listStatRows(db: Db, settings: SettingsDto): StatRow[] {
   const batches = activeBatches(db);
   const baseline = baselineEnd(settings);
-  return db
-    .select()
-    .from(transactions)
-    .all()
-    .flatMap((row) => {
-      if (row.source === "fees") {
-        return [];
-      }
-      const status = statusOf(row, batches.get(row.id) ?? null, baseline);
-      const unconfirmed = row.source === "monero" && status === "review";
-      const counted =
-        REVENUE_KINDS.has(row.kind) && !row.hidden && !row.ignored;
-      if (row.source === "monero" && (!counted || unconfirmed)) {
-        return [];
-      }
-      return [
-        {
-          day: localDay(row.occurredAt),
-          feeDay: new Date(row.occurredAt * 1000).toISOString().slice(0, 10),
-          source: row.source,
-          account: settings.accounts[row.source],
-          revenueCents: counted ? row.amountCents : 0,
-          stripeFeeCents: row.stripeFeeCents,
-          passthroughFeeCents: row.passthroughFeeCents,
-          product: productLabel(row.product ?? row.description ?? row.purpose),
-          payment: counted && PAYMENT_KINDS.has(row.kind),
-        },
-      ];
-    });
+  const rows = db.select().from(transactions).all();
+  const customerOf = customerKeys(rows);
+  return rows.flatMap((row) => {
+    if (row.source === "fees") {
+      return [];
+    }
+    const status = statusOf(row, batches.get(row.id) ?? null, baseline);
+    const unconfirmed = row.source === "monero" && status === "review";
+    const counted = REVENUE_KINDS.has(row.kind) && !row.hidden && !row.ignored;
+    if (row.source === "monero" && (!counted || unconfirmed)) {
+      return [];
+    }
+    return [
+      {
+        day: localDay(row.occurredAt),
+        feeDay: new Date(row.occurredAt * 1000).toISOString().slice(0, 10),
+        source: row.source,
+        account: settings.accounts[row.source],
+        revenueCents: counted ? row.amountCents : 0,
+        stripeFeeCents: row.stripeFeeCents,
+        passthroughFeeCents: row.passthroughFeeCents,
+        product: productLabel(row.product ?? row.description ?? row.purpose),
+        payment: counted && PAYMENT_KINDS.has(row.kind),
+        customer: counted ? customerOf(row) : null,
+      },
+    ];
+  });
 }
 
 export function listAudit(db: Db): AuditEventDto[] {

@@ -43,6 +43,7 @@ export const transactions = sqliteTable(
     product: text(),
     walletLabel: text("wallet_label"),
     invoiceId: text("invoice_id"),
+    customerId: text("customer_id"),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [index("transactions_occurred_at").on(table.occurredAt)],

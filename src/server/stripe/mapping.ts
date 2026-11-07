@@ -6,6 +6,7 @@ export interface FeeDetail {
 }
 
 export interface StripeCustomer {
+  id?: string;
   object?: string;
   deleted?: boolean;
   name?: string | null;
@@ -78,6 +79,7 @@ export interface MappedTransaction {
   description: string | null;
   refundReason: string | null;
   company: "stripe" | null;
+  customerId: string | null;
 }
 
 const INTERNAL_TYPES = new Set([
@@ -153,6 +155,14 @@ function customerName(charge: StripeCharge | null): string | null {
   );
 }
 
+function customerIdOf(charge: StripeCharge | null): string | null {
+  const customer = charge?.customer;
+  if (typeof customer === "string") {
+    return customer || null;
+  }
+  return customer?.id || null;
+}
+
 function methodLabel(charge: StripeCharge | null): string | null {
   const details = charge?.payment_method_details;
   if (!details?.type) {
@@ -219,6 +229,7 @@ export function mapBalanceTransaction(
     reference: referenceOf(transaction.source),
     description,
     refundReason: refundReason(transaction.source),
+    customerId: customerIdOf(charge),
   };
 
   if (STANDALONE_FEE_TYPES.has(transaction.type)) {

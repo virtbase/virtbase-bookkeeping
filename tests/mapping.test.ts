@@ -126,6 +126,37 @@ describe("mapBalanceTransaction", () => {
     expect(missing).toMatchObject({ name: null, needsReview: true });
   });
 
+  test("keeps the Stripe customer ID, also for deleted customers", () => {
+    const charge = { object: "charge" as const, id: "ch_9" };
+    const idOf = (customer: unknown) =>
+      mapBalanceTransaction({
+        ...base,
+        source: {
+          ...charge,
+          billing_details: { name: "Anna Beispiel" },
+          customer,
+        } as BalanceTransaction["source"],
+      })?.customerId;
+    expect(idOf({ id: "cus_1", name: "Anna Beispiel" })).toBe("cus_1");
+    expect(idOf("cus_2")).toBe("cus_2");
+    expect(idOf({ id: "cus_3", object: "customer", deleted: true })).toBe(
+      "cus_3",
+    );
+    expect(idOf(null)).toBeNull();
+    const refund = mapBalanceTransaction({
+      ...base,
+      type: "refund",
+      amount: -500,
+      fee_details: [],
+      source: {
+        object: "refund",
+        id: "re_1",
+        charge: { ...charge, customer: "cus_4" },
+      },
+    });
+    expect(refund?.customerId).toBe("cus_4");
+  });
+
   test("flags unknown types instead of losing them", () => {
     const row = mapBalanceTransaction({
       ...base,

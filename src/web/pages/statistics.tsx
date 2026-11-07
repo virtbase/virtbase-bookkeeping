@@ -17,7 +17,14 @@ import type { Source } from "@shared/types.ts";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { useTable } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
-import { Download, Euro, Receipt, TrendingUp, Wallet } from "lucide-react";
+import {
+  CreditCard,
+  Download,
+  Euro,
+  Receipt,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -57,7 +64,13 @@ const GRANULARITIES: { value: Granularity; label: string }[] = [
 const GROUPINGS: { value: GroupBy; label: string }[] = [
   { value: "source", label: "Quelle" },
   { value: "account", label: "Konto" },
+  { value: "customer", label: "Kunden" },
 ];
+const CHART_TITLES: Record<GroupBy, string> = {
+  source: "Umsatz nach Quelle",
+  account: "Umsatz nach Konto",
+  customer: "Umsatz nach Kunden",
+};
 const REVENUE_SOURCES: Source[] = ["stripe", "monero"];
 const SOURCE_LABELS: SourceLabels = {
   stripe: SOURCES.stripe.label,
@@ -81,12 +94,25 @@ function signedEuro(cents: number): string {
   return `${cents < 0 ? "−" : ""}${formatEuro(cents)}`;
 }
 
-function comparison(current: number, previous: number): string {
+function comparison(current: number, previous: number | null): string {
+  if (previous === null) {
+    return "Kein vollständiger Vorzeitraum";
+  }
   if (previous <= 0) {
     return "Kein Vergleichszeitraum";
   }
   const change = Math.round(((current - previous) / previous) * 100);
   return `${change > 0 ? "+" : change < 0 ? "−" : "±"}${Math.abs(change).toLocaleString("de-DE")} % zum Vorzeitraum`;
+}
+
+function averagePayment(cents: number, count: number): string {
+  return count > 0
+    ? `Ø ${formatEuro(Math.round(cents / count))} je Zahlung`
+    : "Keine Zahlungen";
+}
+
+function customerNote(fresh: number, returning: number): string {
+  return `${countLabel(fresh, "Kunde hat", "Kunden haben")} im Zeitraum zum ersten Mal gezahlt, ${countLabel(returning, "Kunde", "Kunden")} schon vorher. Erkannt am Namen.`;
 }
 
 function feeShare(fees: number, revenue: number): string {
@@ -142,6 +168,14 @@ function Segmented<T extends string>({
       ))}
     </fieldset>
   );
+}
+
+const wholeEuro = new Intl.NumberFormat("de-DE", {
+  maximumFractionDigits: 0,
+});
+
+function euroRange(lowCents: number, highCents: number): string {
+  return `${wholeEuro.format(lowCents / 100)}–${wholeEuro.format(highCents / 100)} €`;
 }
 
 function Tile({
@@ -409,14 +443,24 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Tile
           label="Umsatz brutto"
           icon={Euro}
           value={<Private>{signedEuro(totals.revenueCents)}</Private>}
           hint={
             <Private>
-              {comparison(totals.revenueCents, previous.revenueCents)}
+              {comparison(totals.revenueCents, previous?.revenueCents ?? null)}
+            </Private>
+          }
+        />
+        <Tile
+          label="Zahlungen"
+          icon={CreditCard}
+          value={<Private>{totals.payments.toLocaleString("de-DE")}</Private>}
+          hint={
+            <Private>
+              {averagePayment(totals.paymentCents, totals.payments)}
             </Private>
           }
         />
@@ -433,7 +477,9 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
           icon={Wallet}
           value={<Private>{signedEuro(totals.netCents)}</Private>}
           hint={
-            <Private>{comparison(totals.netCents, previous.netCents)}</Private>
+            <Private>
+              {comparison(totals.netCents, previous?.netCents ?? null)}
+            </Private>
           }
         />
         <Tile
@@ -447,17 +493,34 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
             )
           }
           hint={
-            forecast
-              ? `Nächste ${forecast.horizon} ${PERIOD_UNITS[granularity]}`
-              : "Noch nicht verfügbar"
+            forecast ? (
+              forecast.lowCents !== null && forecast.highCents !== null ? (
+                <>
+                  Meist{" "}
+                  <Private>
+                    {euroRange(forecast.lowCents, forecast.highCents)}
+                  </Private>
+                </>
+              ) : (
+                `Nächste ${forecast.horizon} ${PERIOD_UNITS[granularity]}`
+              )
+            ) : (
+              "Noch nicht verfügbar"
+            )
           }
         />
       </div>
 
       <RevenueChart
         statistics={statistics}
-        title={
-          groupBy === "source" ? "Umsatz nach Quelle" : "Umsatz nach Konto"
+        title={CHART_TITLES[groupBy]}
+        note={
+          groupBy === "customer"
+            ? customerNote(
+                statistics.customers.new,
+                statistics.customers.returning,
+              )
+            : undefined
         }
       />
 

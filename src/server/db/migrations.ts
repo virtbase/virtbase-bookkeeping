@@ -106,4 +106,8 @@ export const MIGRATIONS: string[] = [
     WHERE EXISTS (SELECT 1 FROM transactions)
       OR EXISTS (SELECT 1 FROM settings);
   `,
+  `
+  ALTER TABLE transactions ADD COLUMN customer_id TEXT;
+  DELETE FROM settings WHERE key = 'stripe.syncedFrom';
+  `,
 ];
