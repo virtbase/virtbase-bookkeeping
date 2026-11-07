@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.7.0...v0.8.0) (2026-11-07)
+
+
+### Features
+
+* add advanced filters across all pages ([6c934fa](https://github.com/virtbase/virtbase-bookkeeping/commit/6c934fa094034410f25df26887db21fdea6c4f6f))
+
 ## [0.7.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.6.0...v0.7.0) (2026-11-07)
 
 
