@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.5.0...v0.6.0) (2026-11-07)
+
+
+### Features
+
+* add option to override csv naming ([748cf98](https://github.com/virtbase/virtbase-bookkeeping/commit/748cf9819004a4dd731ea9b38d04dfb9d8b2c2c5))
+
 ## [0.5.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.4.0...v0.5.0) (2026-11-06)
 
 

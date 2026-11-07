@@ -1,6 +1,6 @@
 {
   "name": "virtbase-bookkeeping",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Local bookkeeping app that fetches Stripe and Monero transactions and exports Lexware Office CSV files.",
   "keywords": [
     "bookkeeping",
