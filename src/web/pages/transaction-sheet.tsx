@@ -9,7 +9,16 @@ import {
 import type { MoneroForm } from "@shared/schemas.ts";
 import { moneroFormSchema, nameFormSchema } from "@shared/schemas.ts";
 import type { InvoiceLookupDto, TransactionDto } from "@shared/types.ts";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Archive,
+  ChartNoAxesColumn,
+  ChevronDown,
+  ChevronUp,
+  List,
+  Package,
+  ScrollText,
+} from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -32,7 +41,15 @@ import {
 import { api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
 import { formatDay, formatIsoDay, formatStamp } from "@/lib/format";
+import {
+  showAudit,
+  showExports,
+  showStatistics,
+  showTransactions,
+} from "@/lib/navigate";
+import { methodIcon } from "@/lib/payment-methods";
 import { usePrivacy } from "@/lib/preferences";
+import { contextFilter } from "@/lib/transaction-filter";
 import { cn } from "@/lib/utils";
 
 interface TransactionSheetProps {
@@ -56,6 +73,7 @@ interface Fact {
   value: string;
   copy?: string;
   id?: boolean;
+  icon?: LucideIcon;
 }
 
 function submitOnCtrlEnter(event: KeyboardEvent<HTMLFormElement>): void {
@@ -110,14 +128,18 @@ function facts(row: TransactionDto): Fact[] {
   if (row.source === "fees") {
     return [
       amountFact("Betrag", formatSignedEuro(row.amountCents), row.amountCents),
-      { label: "Berechnet aus", value: row.method ?? "—" },
+      { label: "Berechnet aus", value: row.feeBasis ?? "—" },
       { label: "Stripe-Feld", value: row.kind },
     ];
   }
   const net = row.amountCents - row.stripeFeeCents - row.passthroughFeeCents;
   const valueDay = formatDay(row.valueAt);
   return [
-    { label: "Zahlungsart", value: row.method ?? "—" },
+    {
+      label: "Zahlungsart",
+      value: row.method ?? "—",
+      icon: row.method ? methodIcon(row.method) : undefined,
+    },
     amountFact("Brutto", formatSignedEuro(row.amountCents), row.amountCents),
     feeFact("Stripe-Gebühr", row.stripeFeeCents),
     feeFact("PayPal-Gebühr", row.passthroughFeeCents),
@@ -139,14 +161,22 @@ function MiddleTruncated({ value }: { value: string }) {
 function Facts({ row }: { row: TransactionDto }) {
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 border-t pt-3">
-      {facts(row).map(({ label, value, copy, id }) => (
+      {facts(row).map(({ label, value, copy, id, icon: Icon }) => (
         <div key={label} className="contents">
           <dt className="text-muted-foreground">{label}</dt>
           <dd className="flex items-start justify-end gap-1 text-right tabular-nums">
             {id ? (
               <MiddleTruncated value={value} />
             ) : (
-              <span className="wrap-anywhere min-w-0">{value}</span>
+              <span className="wrap-anywhere inline-flex min-w-0 items-center gap-1.5">
+                {Icon && (
+                  <Icon
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                )}
+                {value}
+              </span>
             )}
             <CopyButton
               value={copy ?? value}
@@ -158,6 +188,82 @@ function Facts({ row }: { row: TransactionDto }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+interface Link {
+  label: string;
+  icon: LucideIcon;
+  run: () => void;
+}
+
+function linksOf(row: TransactionDto): Link[] {
+  const links: Link[] = [];
+  const { batchId, customerKey, productLabel } = row;
+  if (batchId !== null) {
+    links.push({
+      label: `In Export #${batchId}`,
+      icon: Archive,
+      run: () => showExports({ batchId }),
+    });
+  }
+  if (customerKey && row.name && row.countsAsRevenue) {
+    links.push(
+      {
+        label: "Alle Zahlungen dieses Kunden",
+        icon: List,
+        run: () =>
+          showTransactions(
+            contextFilter({ customers: [customerKey], revenueOnly: true }),
+          ),
+      },
+      {
+        label: "Umsatz dieses Kunden",
+        icon: ChartNoAxesColumn,
+        run: () => showStatistics({ customers: [customerKey] }),
+      },
+    );
+  }
+  if (productLabel && row.countsAsRevenue) {
+    links.push({
+      label: `Alle Zahlungen für ${productLabel}`,
+      icon: Package,
+      run: () =>
+        showTransactions(
+          contextFilter({ products: [productLabel], revenueOnly: true }),
+        ),
+    });
+  }
+  links.push({
+    label: "Verlauf im Audit-Log",
+    icon: ScrollText,
+    run: () => showAudit({ target: { type: "transaction", id: row.id } }),
+  });
+  return links;
+}
+
+function Links({ row, onClose }: { row: TransactionDto; onClose: () => void }) {
+  return (
+    <nav
+      aria-label="Verknüpfungen"
+      className="-mx-2 flex flex-col gap-0.5 border-t pt-3"
+    >
+      {linksOf(row).map(({ label, icon: Icon, run }) => (
+        <Button
+          key={label}
+          variant="ghost"
+          size="sm"
+          className="justify-start font-normal"
+          onClick={() => {
+            onClose();
+            run();
+          }}
+        >
+          <Icon className="text-muted-foreground" />
+          <span className="min-w-0 truncate">{label}</span>
+        </Button>
+      ))}
+    </nav>
   );
 }
 
@@ -513,6 +619,7 @@ export function TransactionSheet({
               <NameForm key={row.id} row={row} onSaved={onSaved} />
             )}
             {!editable && <Facts row={row} />}
+            {!editable && <Links row={row} onClose={onClose} />}
             {row.status !== "exported" && (
               <Button
                 variant="outline"

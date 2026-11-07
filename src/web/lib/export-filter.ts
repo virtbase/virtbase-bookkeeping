@@ -15,6 +15,7 @@ export interface ExportFilter {
   statuses: BatchStatus[];
   from: string | null;
   to: string | null;
+  batchId: number | null;
 }
 
 export const EMPTY_EXPORT_FILTER: ExportFilter = {
@@ -23,18 +24,10 @@ export const EMPTY_EXPORT_FILTER: ExportFilter = {
   statuses: [],
   from: null,
   to: null,
+  batchId: null,
 };
 
-export function isFiltered(filter: ExportFilter): boolean {
-  return (
-    filter.search.trim() !== "" ||
-    filter.accounts.length > 0 ||
-    filter.statuses.length > 0 ||
-    filter.from !== null
-  );
-}
-
-function searchText(batch: BatchDto): string {
+export function batchSearchText(batch: BatchDto): string {
   return [
     `#${batch.id}`,
     batch.account || NO_ACCOUNT_LABEL,
@@ -55,6 +48,7 @@ export function filterBatches(
   const to = filter.to ?? from;
   return batches.filter(
     (batch) =>
+      (filter.batchId === null || batch.id === filter.batchId) &&
       (filter.accounts.length === 0 ||
         filter.accounts.includes(batch.account)) &&
       (filter.statuses.length === 0 ||
@@ -62,6 +56,6 @@ export function filterBatches(
       (!from ||
         !to ||
         (isoDay(batch.lastAt) >= from && isoDay(batch.firstAt) <= to)) &&
-      (!query || searchText(batch).includes(query)),
+      (!query || batchSearchText(batch).includes(query)),
   );
 }

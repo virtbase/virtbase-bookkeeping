@@ -31,6 +31,7 @@ export interface StatRow {
   product: string | null;
   payment: boolean;
   customer: string | null;
+  customerName: string | null;
 }
 
 export interface StatOptions {
@@ -39,6 +40,8 @@ export interface StatOptions {
   granularity: Granularity;
   groupBy: GroupBy;
   sources: Source[];
+  customers: string[];
+  products: string[];
   today: string;
 }
 
@@ -106,7 +109,8 @@ const FORECAST_HORIZON: Record<Granularity, number> = {
   month: 3,
 };
 const MAX_PRODUCTS = 6;
-const OTHER = "Sonstige";
+export const OTHER = "Sonstige";
+export const MORE = "Weitere";
 const SOURCE_ORDER: Source[] = ["stripe", "monero", "fees"];
 const MONTHS = [
   "Jan",
@@ -223,20 +227,23 @@ function totalsOf(rows: StatRow[], from: string, to: string): StatTotals {
 function rankedProducts(rows: StatRow[]): StatGroup[] {
   const sums = new Map<string, number>();
   for (const row of rows) {
-    if (row.revenueCents !== 0) {
-      const name = row.product ?? OTHER;
-      sums.set(name, (sums.get(name) ?? 0) + row.revenueCents);
+    if (row.revenueCents !== 0 && row.product) {
+      sums.set(row.product, (sums.get(row.product) ?? 0) + row.revenueCents);
     }
   }
   const ranked = [...sums.entries()]
     .filter(([name]) => name !== OTHER)
     .map(([name, totalCents]) => ({ name, totalCents }))
     .sort((a, b) => b.totalCents - a.totalCents);
-  const top = ranked.slice(0, MAX_PRODUCTS);
-  const rest =
-    (sums.get(OTHER) ?? 0) +
-    ranked.slice(MAX_PRODUCTS).reduce((sum, item) => sum + item.totalCents, 0);
-  return rest === 0 ? top : [...top, { name: OTHER, totalCents: rest }];
+  const tail = ranked
+    .slice(MAX_PRODUCTS)
+    .reduce((sum, item) => sum + item.totalCents, 0);
+  const unnamed = sums.get(OTHER) ?? 0;
+  return [
+    ...ranked.slice(0, MAX_PRODUCTS),
+    ...(unnamed === 0 ? [] : [{ name: OTHER, totalCents: unnamed }]),
+    ...(tail === 0 ? [] : [{ name: MORE, totalCents: tail }]),
+  ];
 }
 
 function emptyBucket(key: string, granularity: Granularity): StatBucket {
@@ -262,6 +269,8 @@ export function buildStatistics(
   labels: SourceLabels,
 ): Statistics {
   const { from, to, granularity, groupBy, sources, today } = options;
+  const customers = new Set(options.customers);
+  const products = new Set(options.products);
   const first = firstPayments(rows);
   const groupName = (row: StatRow) => {
     if (groupBy === "customer") {
@@ -285,7 +294,12 @@ export function buildStatistics(
           ),
         ];
   const scoped = rows.filter(
-    (row) => sources.length === 0 || sources.includes(row.source),
+    (row) =>
+      (sources.length === 0 || sources.includes(row.source)) &&
+      (customers.size === 0 ||
+        (row.customer !== null && customers.has(row.customer))) &&
+      (products.size === 0 ||
+        (row.product !== null && products.has(row.product))),
   );
   const inRange = scoped.filter((row) => row.day >= from && row.day <= to);
   const span = daysBetween(from, to);
@@ -396,6 +410,49 @@ export function buildStatistics(
 
 function amount(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",");
+}
+
+interface NamedOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+function countOptions(
+  rows: StatRow[],
+  pick: (row: StatRow) => string | null,
+): Map<string, { row: StatRow; count: number }> {
+  const options = new Map<string, { row: StatRow; count: number }>();
+  for (const row of rows) {
+    const value = row.revenueCents === 0 ? null : pick(row);
+    if (value) {
+      const seen = options.get(value);
+      options.set(value, { row, count: (seen?.count ?? 0) + 1 });
+    }
+  }
+  return options;
+}
+
+export function customerOptions(rows: StatRow[]): NamedOption[] {
+  return [...countOptions(rows, (row) => row.customer).entries()]
+    .map(([value, { row, count }]) => ({
+      value,
+      label: row.customerName ?? value,
+      count,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "de-DE"));
+}
+
+export function productOptions(rows: StatRow[]): NamedOption[] {
+  return [...countOptions(rows, (row) => row.product).entries()]
+    .map(([value, { count }]) => ({ value, label: value, count }))
+    .sort((a, b) =>
+      a.value === OTHER
+        ? 1
+        : b.value === OTHER
+          ? -1
+          : a.label.localeCompare(b.label, "de-DE"),
+    );
 }
 
 export function renderStatisticsCsv(

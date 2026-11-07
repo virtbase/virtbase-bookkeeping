@@ -1,17 +1,23 @@
-import { formatEuro, formatSignedEuro, plainAmount } from "@shared/money.ts";
-import type { BatchDto, TransactionDto } from "@shared/types.ts";
+import { formatSignedEuro } from "@shared/money.ts";
+import type { ExportsDto, TransactionDto } from "@shared/types.ts";
 import type { LucideIcon } from "lucide-react";
 import {
   Archive,
+  CalendarCheck,
+  CalendarX,
   ChartNoAxesColumn,
+  CircleAlert,
+  CircleCheck,
   Cog,
   DatabaseBackup,
   Eye,
+  FileClock,
   GraduationCap,
   Keyboard,
   List,
   Moon,
   RefreshCw,
+  RotateCcw,
   ScrollText,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,11 +33,19 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { batchSearchText } from "@/lib/export-filter";
 import { formatStamp } from "@/lib/format";
+import { openPage, showExports, showTransactions } from "@/lib/navigate";
 import { requestPageAction } from "@/lib/page-actions";
 import { usePreferences, usePrivacy } from "@/lib/preferences";
 import type { ShortcutId } from "@/lib/shortcuts";
 import { runShortcut, useShortcut } from "@/lib/shortcuts";
+import {
+  contextFilter,
+  missingDaysFilter,
+  OPEN_FEES_FILTER,
+  searchText,
+} from "@/lib/transaction-filter";
 
 const RESULT_LIMIT = 8;
 const MIN_QUERY_LENGTH = 2;
@@ -47,17 +61,13 @@ function matches(text: string, query: string): boolean {
   return text.toLowerCase().includes(query);
 }
 
-function go(route: string): void {
-  window.location.hash = `#/${route}`;
-}
-
 export function CommandPalette() {
   const { update, toggleTheme, togglePrivacy } = usePreferences();
   const { mask } = usePrivacy();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<TransactionDto[]>([]);
-  const [batches, setBatches] = useState<BatchDto[]>([]);
+  const [exports, setExports] = useState<ExportsDto | null>(null);
 
   useShortcut("palette", () => setOpen(!open));
 
@@ -67,40 +77,79 @@ export function CommandPalette() {
       return;
     }
     void api.transactions().then(setRows);
-    void api.exports().then(({ batches: list }) => setBatches(list));
+    void api.exports().then(setExports);
   }, [open]);
 
   const needle = query.trim().toLowerCase();
+  const batches = exports?.batches ?? [];
+  const missingDays = exports?.missingDays ?? [];
+  const views: Entry[] = [
+    {
+      label: "Ansicht: Zu prüfen",
+      icon: CircleAlert,
+      run: () => showTransactions({ statuses: ["review"] }),
+    },
+    {
+      label: "Ansicht: Bereit zum Export",
+      icon: CircleCheck,
+      run: () => showTransactions({ statuses: ["ready"] }),
+    },
+    {
+      label: "Ansicht: Monatsabschluss",
+      icon: CalendarCheck,
+      run: () => showTransactions(OPEN_FEES_FILTER),
+    },
+    {
+      label: "Ansicht: Erstattungen und Anpassungen",
+      icon: RotateCcw,
+      run: () =>
+        showTransactions(contextFilter({ kinds: ["refund", "adjustment"] })),
+    },
+    ...(missingDays.length > 0
+      ? [
+          {
+            label: "Ansicht: Tage ohne Export",
+            icon: CalendarX,
+            run: () => showTransactions(missingDaysFilter(missingDays)),
+          },
+        ]
+      : []),
+    {
+      label: "Ansicht: Lexware ausstehend",
+      icon: FileClock,
+      run: () => showExports({ statuses: ["pending"] }),
+    },
+  ];
   const pages: Entry[] = [
     {
       label: "Transaktionen",
       icon: List,
       shortcut: "go-transaktionen",
-      run: () => go("transaktionen"),
+      run: () => openPage("transaktionen"),
     },
     {
       label: "Statistiken",
       icon: ChartNoAxesColumn,
       shortcut: "go-statistiken",
-      run: () => go("statistiken"),
+      run: () => openPage("statistiken"),
     },
     {
       label: "Exporte",
       icon: Archive,
       shortcut: "go-exporte",
-      run: () => go("exporte"),
+      run: () => openPage("exporte"),
     },
     {
       label: "Audit-Log",
       icon: ScrollText,
       shortcut: "go-audit-log",
-      run: () => go("audit-log"),
+      run: () => openPage("audit-log"),
     },
     {
       label: "Einstellungen",
       icon: Cog,
       shortcut: "go-einstellungen",
-      run: () => go("einstellungen"),
+      run: () => openPage("einstellungen"),
     },
   ];
   const actions: Entry[] = [
@@ -109,7 +158,7 @@ export function CommandPalette() {
       icon: RefreshCw,
       shortcut: "sync",
       run: () => {
-        go("transaktionen");
+        openPage("transaktionen");
         requestPageAction({ type: "sync" });
       },
     },
@@ -140,7 +189,7 @@ export function CommandPalette() {
       label: "Einführung starten",
       icon: GraduationCap,
       run: () => {
-        go("transaktionen");
+        openPage("transaktionen");
         update({ tourPending: true });
       },
     },
@@ -152,20 +201,13 @@ export function CommandPalette() {
     needle.length < MIN_QUERY_LENGTH
       ? []
       : rows
-          .filter((row) =>
-            matches(
-              `${row.name ?? ""} ${row.purpose} ${plainAmount(row.amountCents)} ${formatEuro(row.amountCents)}`,
-              needle,
-            ),
-          )
+          .filter((row) => searchText(row).includes(needle))
           .slice(0, RESULT_LIMIT);
   const foundBatches =
     needle.length < MIN_QUERY_LENGTH
       ? []
       : batches
-          .filter((batch) =>
-            matches(`#${batch.id} ${batch.account} ${batch.fileName}`, needle),
-          )
+          .filter((batch) => batchSearchText(batch).includes(needle))
           .slice(0, RESULT_LIMIT);
 
   const choose = (run: () => void) => {
@@ -209,7 +251,7 @@ export function CommandPalette() {
                     value={row.id}
                     onSelect={() =>
                       choose(() => {
-                        go("transaktionen");
+                        openPage("transaktionen");
                         requestPageAction({ type: "open", id: row.id });
                       })
                     }
@@ -233,7 +275,9 @@ export function CommandPalette() {
                   <CommandItem
                     key={batch.id}
                     value={`export-${batch.id}`}
-                    onSelect={() => choose(() => go("exporte"))}
+                    onSelect={() =>
+                      choose(() => showExports({ batchId: batch.id }))
+                    }
                   >
                     <Archive
                       className="size-4 text-muted-foreground"
@@ -246,6 +290,7 @@ export function CommandPalette() {
                 ))}
               </CommandGroup>
             )}
+            {renderEntries("Ansichten", filterEntries(views))}
             {renderEntries("Seiten", filterEntries(pages))}
             {renderEntries("Aktionen", filterEntries(actions))}
           </CommandList>

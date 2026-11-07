@@ -92,6 +92,7 @@ import {
 import { ApiError, api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
 import { countLabel, formatBytes, formatStamp } from "@/lib/format";
+import { openPage } from "@/lib/navigate";
 import { usePreferences } from "@/lib/preferences";
 import { runShortcut, useShortcut } from "@/lib/shortcuts";
 import { DangerZone } from "@/pages/danger-zone";
@@ -925,7 +926,7 @@ function GeneralForm({
             size="sm"
             onClick={() => {
               update({ tourPending: true });
-              window.location.hash = "#/transaktionen";
+              openPage("transaktionen");
             }}
           >
             Einführung starten

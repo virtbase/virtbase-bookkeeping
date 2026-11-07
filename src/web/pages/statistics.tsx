@@ -1,4 +1,5 @@
 import { formatEuro } from "@shared/money.ts";
+import { bucketEnd } from "@shared/periods.ts";
 import type {
   Granularity,
   GroupBy,
@@ -8,13 +9,15 @@ import type {
 } from "@shared/statistics.ts";
 import {
   buildStatistics,
+  customerOptions,
+  MORE,
+  productOptions,
   renderStatisticsCsv,
   shiftDay,
-  shiftMonth,
   suggestedGranularity,
 } from "@shared/statistics.ts";
 import type { Source } from "@shared/types.ts";
-import type { PaginationState, SortingState } from "@tanstack/react-table";
+import type { SortingState } from "@tanstack/react-table";
 import { useTable } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -26,7 +29,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { AppColumn } from "@/components/data-table/data-table";
 import { DataTable, SortHeader } from "@/components/data-table/data-table";
@@ -34,21 +37,33 @@ import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
 import { Private } from "@/components/private";
+import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { downloadFile } from "@/lib/download";
+import { useStoredFilter } from "@/lib/filter-state";
 import { countLabel, formatIsoDay } from "@/lib/format";
+import { STATISTICS_VIEW, showTransactions } from "@/lib/navigate";
+import { usePrivacy } from "@/lib/preferences";
 import { SOURCES } from "@/lib/sources";
-import { cn } from "@/lib/utils";
+import type {
+  Preset,
+  StatisticsView as ViewState,
+} from "@/lib/statistics-view";
+import {
+  DEFAULT_STATISTICS_VIEW,
+  presetStart,
+  withPreset,
+} from "@/lib/statistics-view";
+import type { TransactionFilter } from "@/lib/transaction-filter";
+import { contextFilter } from "@/lib/transaction-filter";
 import {
   FeeChart,
   PERIOD_UNITS,
   ProductChart,
   RevenueChart,
 } from "./statistics-charts";
-
-type Preset = "30" | "90" | "12m" | "year";
 
 const PRESETS: { value: Preset; label: string }[] = [
   { value: "30", label: "30 Tage" },
@@ -78,16 +93,22 @@ const SOURCE_LABELS: SourceLabels = {
   fees: SOURCES.fees.label,
 };
 const MAX_DAY_SPAN = 120;
-function presetStart(preset: Preset, today: string): string {
-  if (preset === "30") {
-    return shiftDay(today, -29);
+
+function bucketPeriod(
+  buckets: StatBucket[],
+  key: string,
+  { granularity, from, to }: Pick<ViewState, "granularity" | "from" | "to">,
+) {
+  const bucket = buckets.find((entry) => entry.key === key);
+  if (!bucket || bucket.projected) {
+    return null;
   }
-  if (preset === "90") {
-    return shiftDay(today, -89);
-  }
-  return preset === "12m"
-    ? shiftMonth(today, -11)
-    : `${today.slice(0, 4)}-01-01`;
+  const end = bucketEnd(key, granularity);
+  return {
+    range: null,
+    from: key < from ? from : key,
+    to: end > to ? to : end,
+  };
 }
 
 function signedEuro(cents: number): string {
@@ -129,45 +150,6 @@ function periodLabel(bucket: StatBucket, granularity: Granularity): string {
   }
   const day = formatIsoDay(bucket.key);
   return granularity === "week" ? `ab ${day}` : day;
-}
-
-interface SegmentedProps<T extends string> {
-  label: string;
-  options: { value: T; label: string }[];
-  value: T | null;
-  disabled?: T[];
-  onChange: (value: T) => void;
-}
-
-function Segmented<T extends string>({
-  label,
-  options,
-  value,
-  disabled = [],
-  onChange,
-}: SegmentedProps<T>) {
-  return (
-    <fieldset className="flex h-8 items-center gap-0.5 rounded-md border p-0.5">
-      <legend className="sr-only">{label}</legend>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={option.value === value}
-          disabled={disabled.includes(option.value)}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "h-6.5 rounded-[5px] px-2 font-medium text-xs disabled:pointer-events-none disabled:opacity-40",
-            option.value === value
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </fieldset>
-  );
 }
 
 const wholeEuro = new Intl.NumberFormat("de-DE", {
@@ -234,31 +216,67 @@ export function StatisticsPage() {
 
 function StatisticsView({ data }: { data: StatisticsDto }) {
   const { rows, today } = data;
-  const [preset, setPreset] = useState<Preset | null>("12m");
-  const [{ from, to }, setRange] = useState({
-    from: presetStart("12m", today),
-    to: today,
-  });
-  const [granularity, setGranularity] = useState<Granularity>("month");
-  const [groupBy, setGroupBy] = useState<GroupBy>("source");
-  const [sources, setSources] = useState<Source[]>([]);
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 25,
-  });
+  const { mask } = usePrivacy();
+  const {
+    filter: stored,
+    update,
+    pagination,
+    setPagination,
+  } = useStoredFilter<ViewState>(STATISTICS_VIEW, DEFAULT_STATISTICS_VIEW, 25);
+  const view = useMemo(() => withPreset(stored, today), [stored, today]);
+  const {
+    preset,
+    from,
+    to,
+    granularity,
+    groupBy,
+    sources,
+    customers,
+    products,
+  } = view;
   const [sorting, setSorting] = useState<SortingState>([
     { id: "key", desc: true },
   ]);
 
   const statistics = useMemo(
-    () =>
-      buildStatistics(
-        rows,
-        { from, to, granularity, groupBy, sources, today },
-        SOURCE_LABELS,
-      ),
-    [rows, from, to, granularity, groupBy, sources, today],
+    () => buildStatistics(rows, { ...view, today }, SOURCE_LABELS),
+    [rows, view, today],
   );
+  const customerChoices = useMemo(() => customerOptions(rows), [rows]);
+  const productChoices = useMemo(() => productOptions(rows), [rows]);
+
+  const showBucket = useCallback(
+    (key: string, scope: Partial<TransactionFilter>) => {
+      const period = bucketPeriod(statistics.buckets, key, view);
+      if (period) {
+        showTransactions(
+          contextFilter({
+            ...period,
+            customers: view.customers,
+            products: view.products,
+            ...scope,
+          }),
+        );
+      }
+    },
+    [statistics.buckets, view],
+  );
+  const showRevenue = useCallback(
+    (key: string) => showBucket(key, { sources, revenueOnly: true }),
+    [showBucket, sources],
+  );
+  const showFees = (key: string) => showBucket(key, { sources: ["stripe"] });
+
+  const toggleProduct = (name: string) => {
+    if (name === MORE) {
+      return;
+    }
+    update({
+      products: products.includes(name)
+        ? products.filter((entry) => entry !== name)
+        : [...products, name],
+    });
+  };
 
   const columns = useMemo<AppColumn<StatBucket>[]>(
     () => [
@@ -268,7 +286,18 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
         header: ({ column }) => <SortHeader column={column} label="Zeitraum" />,
         cell: ({ row }) => (
           <span className="tabular-nums">
-            {periodLabel(row.original, granularity)}
+            {row.original.projected ? (
+              periodLabel(row.original, granularity)
+            ) : (
+              <button
+                type="button"
+                className="hover:underline"
+                title="Zeilen dieses Zeitraums anzeigen"
+                onClick={() => showRevenue(row.original.key)}
+              >
+                {periodLabel(row.original, granularity)}
+              </button>
+            )}
             {(row.original.partial || row.original.projected) && (
               <span className="ml-2 text-muted-foreground text-xs">
                 {row.original.projected ? "Prognose" : "laufend"}
@@ -327,7 +356,7 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
         cell: ({ row }) => euroCell(row.original.forecastCents),
       },
     ],
-    [statistics.groups, granularity],
+    [statistics.groups, granularity, showRevenue],
   );
 
   const table = useTable({
@@ -340,14 +369,12 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
     onSortingChange: setSorting,
   });
 
-  const firstPage = () => setPagination({ ...pagination, pageIndex: 0 });
-
   const choosePreset = (value: Preset) => {
     const start = presetStart(value, today);
-    setPreset(value);
-    setRange({ from: start, to: today });
-    setGranularity(suggestedGranularity(start, today));
-    firstPage();
+    update({
+      preset: value,
+      granularity: suggestedGranularity(start, today),
+    });
   };
 
   const chooseRange = (start: string | null, end: string | null) => {
@@ -356,10 +383,12 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
       return;
     }
     const last = end ?? start;
-    setPreset(null);
-    setRange({ from: start, to: last });
-    setGranularity(suggestedGranularity(start, last));
-    firstPage();
+    update({
+      preset: null,
+      from: start,
+      to: last,
+      granularity: suggestedGranularity(start, last),
+    });
   };
 
   const exportCsv = async () => {
@@ -414,10 +443,24 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
           title="Quelle"
           options={sourceOptions}
           selected={sources}
-          onChange={(selected) => {
-            setSources(selected);
-            firstPage();
-          }}
+          onChange={(sources) => update({ sources })}
+        />
+        <FacetedFilter
+          title="Kunde"
+          searchable
+          options={customerChoices.map((option) => ({
+            ...option,
+            label: mask(option.label),
+          }))}
+          selected={customers}
+          onChange={(customers) => update({ customers })}
+        />
+        <FacetedFilter
+          title="Produkt"
+          searchable
+          options={productChoices}
+          selected={products}
+          onChange={(products) => update({ products })}
         />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Segmented
@@ -425,16 +468,13 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
             options={GRANULARITIES}
             value={granularity}
             disabled={[...dayDisabled]}
-            onChange={(value) => {
-              setGranularity(value);
-              firstPage();
-            }}
+            onChange={(granularity) => update({ granularity })}
           />
           <Segmented
             label="Gruppierung"
             options={GROUPINGS}
             value={groupBy}
-            onChange={setGroupBy}
+            onChange={(value) => update({ groupBy: value })}
           />
           <Button variant="outline" size="sm" onClick={() => void exportCsv()}>
             <Download />
@@ -513,6 +553,7 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
 
       <RevenueChart
         statistics={statistics}
+        onSelect={showRevenue}
         title={CHART_TITLES[groupBy]}
         note={
           groupBy === "customer"
@@ -525,8 +566,12 @@ function StatisticsView({ data }: { data: StatisticsDto }) {
       />
 
       <div className="grid gap-3 xl:grid-cols-2">
-        <ProductChart statistics={statistics} />
-        <FeeChart statistics={statistics} />
+        <ProductChart
+          statistics={statistics}
+          selected={products}
+          onSelect={toggleProduct}
+        />
+        <FeeChart statistics={statistics} onSelect={showFees} />
       </div>
 
       <DataTable

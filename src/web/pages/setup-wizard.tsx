@@ -33,6 +33,7 @@ import {
 import { ApiError, api } from "@/lib/api";
 import { showFormError } from "@/lib/form-error";
 import { countLabel } from "@/lib/format";
+import { openPage } from "@/lib/navigate";
 import { usePreferences } from "@/lib/preferences";
 import { cn } from "@/lib/utils";
 import { MoneroWalletSection } from "@/pages/monero-settings";
@@ -489,7 +490,7 @@ function Wizard({
     } catch (error) {
       toast.error((error as Error).message);
     }
-    window.location.hash = "#/transaktionen";
+    openPage("transaktionen");
     update({ tourPending });
     await onChanged();
   });

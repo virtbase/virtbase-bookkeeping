@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
+import { openPage } from "@/lib/navigate";
 
 interface DangerAction {
   id: "exports" | "all";
@@ -63,7 +64,7 @@ export function DangerZone({ onChanged }: { onChanged: () => Promise<void> }) {
       }
       setActive(null);
       await onChanged();
-      window.location.hash = "#/transaktionen";
+      openPage("transaktionen");
       toast("Exporte zurückgesetzt.");
     } catch (error) {
       toast.error((error as Error).message);

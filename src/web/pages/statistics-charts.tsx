@@ -2,6 +2,7 @@ import { formatEuro } from "@shared/money.ts";
 import type {
   Granularity,
   StatBucket,
+  StatGroup,
   Statistics,
 } from "@shared/statistics.ts";
 import type { ReactNode } from "react";
@@ -149,6 +150,15 @@ function forecastRest(bucket: StatBucket): number {
   );
 }
 
+function selectHandler(onSelect: (key: string) => void) {
+  return (state: { activeLabel?: unknown } | null) => {
+    const label = state?.activeLabel;
+    if (typeof label === "string") {
+      onSelect(label);
+    }
+  };
+}
+
 function labelOf(rows: ChartRow[], key: string): string {
   return rows.find((row) => row.key === key)?.label ?? "";
 }
@@ -212,9 +222,15 @@ interface RevenueChartProps {
   statistics: Statistics;
   title: string;
   note?: string;
+  onSelect: (key: string) => void;
 }
 
-export function RevenueChart({ statistics, title, note }: RevenueChartProps) {
+export function RevenueChart({
+  statistics,
+  title,
+  note,
+  onSelect,
+}: RevenueChartProps) {
   const { allGroups, buckets, groups, forecast } = statistics;
   const { mask } = usePrivacy();
   const keys = groups.map((group) => seriesKey(allGroups, group.name));
@@ -266,9 +282,13 @@ export function RevenueChart({ statistics, title, note }: RevenueChartProps) {
         undefined
       }
     >
-      <ChartContainer config={config} className="aspect-auto h-72 w-full">
+      <ChartContainer
+        config={config}
+        className="aspect-auto h-72 w-full cursor-pointer"
+      >
         <ComposedChart
           data={data}
+          onClick={selectHandler(onSelect)}
           stackOffset="sign"
           margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
         >
@@ -379,7 +399,17 @@ export function RevenueChart({ statistics, title, note }: RevenueChartProps) {
   );
 }
 
-export function ProductChart({ statistics }: { statistics: Statistics }) {
+interface ProductChartProps {
+  statistics: Statistics;
+  selected: string[];
+  onSelect: (name: string) => void;
+}
+
+export function ProductChart({
+  statistics,
+  selected,
+  onSelect,
+}: ProductChartProps) {
   const { mask } = usePrivacy();
   const data = statistics.products.filter((item) => item.totalCents > 0);
   const config: ChartConfig = {
@@ -394,11 +424,12 @@ export function ProductChart({ statistics }: { statistics: Statistics }) {
       ) : (
         <ChartContainer
           config={config}
-          className="aspect-auto w-full"
+          className="aspect-auto w-full cursor-pointer"
           style={{ height: Math.max(120, data.length * 34) }}
         >
           <BarChart
             data={data}
+            onClick={selectHandler(onSelect)}
             layout="vertical"
             margin={{ top: 0, right: 84, bottom: 0, left: 0 }}
           >
@@ -432,6 +463,20 @@ export function ProductChart({ statistics }: { statistics: Statistics }) {
               radius={[0, 4, 4, 0]}
               maxBarSize={20}
               isAnimationActive={false}
+              shape={(props) => {
+                const item = (props as unknown as { payload: StatGroup })
+                  .payload;
+                return (
+                  <Rectangle
+                    {...(props as object)}
+                    fillOpacity={
+                      selected.length === 0 || selected.includes(item.name)
+                        ? 1
+                        : 0.35
+                    }
+                  />
+                );
+              }}
             >
               <LabelList
                 dataKey="totalCents"
@@ -447,7 +492,13 @@ export function ProductChart({ statistics }: { statistics: Statistics }) {
   );
 }
 
-export function FeeChart({ statistics }: { statistics: Statistics }) {
+export function FeeChart({
+  statistics,
+  onSelect,
+}: {
+  statistics: Statistics;
+  onSelect: (key: string) => void;
+}) {
   const { mask } = usePrivacy();
   const data: ChartRow[] = statistics.buckets
     .filter((bucket) => !bucket.projected)
@@ -485,8 +536,15 @@ export function FeeChart({ statistics }: { statistics: Statistics }) {
         />
       }
     >
-      <ChartContainer config={config} className="aspect-auto h-60 w-full">
-        <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+      <ChartContainer
+        config={config}
+        className="aspect-auto h-60 w-full cursor-pointer"
+      >
+        <BarChart
+          data={data}
+          onClick={selectHandler(onSelect)}
+          margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
+        >
           <CartesianGrid vertical={false} stroke="var(--border)" />
           <XAxis
             dataKey="key"

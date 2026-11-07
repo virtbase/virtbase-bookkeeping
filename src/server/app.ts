@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { eq, inArray } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { upgradeWebSocket } from "hono/bun";
 import * as z from "zod";
@@ -25,7 +25,7 @@ import { assetType, readAsset } from "./assets.ts";
 import { audit } from "./audit.ts";
 import { assertBackupFolder, BackupService } from "./backup.ts";
 import type { Db } from "./db/client.ts";
-import { transactions } from "./db/schema.ts";
+import { exportBatches, transactions } from "./db/schema.ts";
 import { renderAuditCsv } from "./export/csv.ts";
 import { fileNameStatus, renameExports } from "./export/rename.ts";
 import {
@@ -198,6 +198,12 @@ export function createApp(dependencies: AppDependencies): Hono {
       setupRequired: !isSetupComplete(db),
       update: availableUpdate(db),
       openFeeMonths: openFeeMonths(rows),
+      pendingExports:
+        db
+          .select({ total: count() })
+          .from(exportBatches)
+          .where(eq(exportBatches.status, "pending"))
+          .get()?.total ?? 0,
     };
     return context.json(summary);
   });

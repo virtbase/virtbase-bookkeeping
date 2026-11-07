@@ -4,13 +4,18 @@ import { transactions } from "../src/server/db/schema.ts";
 import { listStatRows, listTransactions } from "../src/server/queries.ts";
 import { historyStart } from "../src/server/stripe/sync.ts";
 import { DEFAULT_FILE_NAME_TEMPLATE } from "../src/shared/file-name.ts";
+import { bucketEnd } from "../src/shared/periods.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../src/shared/purpose.ts";
 import type { StatOptions, StatRow } from "../src/shared/statistics.ts";
 import {
   bucketKey,
   bucketLabel,
   buildStatistics,
+  customerOptions,
+  MORE,
+  OTHER,
   productLabel,
+  productOptions,
   renderStatisticsCsv,
   shiftDay,
   suggestedGranularity,
@@ -31,6 +36,7 @@ function row(values: Partial<StatRow>): StatRow {
     product: "EPYC-01",
     payment: true,
     customer: null,
+    customerName: null,
     ...values,
   };
 }
@@ -41,6 +47,8 @@ const options: StatOptions = {
   granularity: "month",
   groupBy: "source",
   sources: [],
+  customers: [],
+  products: [],
   today: "2026-11-06",
 };
 
@@ -192,21 +200,21 @@ describe("buildStatistics", () => {
     expect(result.customers).toEqual({ new: 1, returning: 1 });
   });
 
-  test("ranks products and folds the rest", () => {
+  test("ranks products and keeps Sonstige apart from the rest", () => {
     const many = Array.from({ length: 8 }, (_, index) =>
       row({ product: `EPYC-0${index}`, revenueCents: 100 * (index + 1) }),
     );
     const result = buildStatistics(
-      [...many, row({ product: null, revenueCents: 50 })],
+      [...many, row({ product: OTHER, revenueCents: 50 })],
       options,
       labels,
     );
-    expect(result.products).toHaveLength(7);
+    expect(result.products).toHaveLength(8);
     expect(result.products[0]).toEqual({ name: "EPYC-07", totalCents: 800 });
-    expect(result.products.at(-1)).toEqual({
-      name: "Sonstige",
-      totalCents: 350,
-    });
+    expect(result.products.slice(-2)).toEqual([
+      { name: OTHER, totalCents: 50 },
+      { name: MORE, totalCents: 300 },
+    ]);
   });
 });
 
@@ -217,6 +225,73 @@ function everyDay(from: string, until: string, cents = 100): StatRow[] {
   }
   return rows;
 }
+
+describe("customer and product filters", () => {
+  const rows = [
+    row({
+      day: "2026-10-05",
+      customer: "id:a",
+      customerName: "Anna B.",
+      product: "A-1",
+    }),
+    row({
+      day: "2026-10-06",
+      customer: "id:a",
+      customerName: "Anna B.",
+      revenueCents: 300,
+    }),
+    row({
+      day: "2026-10-07",
+      customer: "id:b",
+      customerName: "Ben",
+      product: OTHER,
+    }),
+    row({
+      day: "2026-10-08",
+      customer: null,
+      product: "A-1",
+      revenueCents: 50,
+    }),
+  ];
+
+  test("keeps only the chosen customers", () => {
+    const result = buildStatistics(
+      rows,
+      { ...options, customers: ["id:a"] },
+      labels,
+    );
+    expect(result.totals.revenueCents).toBe(1300);
+  });
+
+  test("keeps only the chosen products", () => {
+    const product = (products: string[]) =>
+      buildStatistics(rows, { ...options, products }, labels).totals
+        .revenueCents;
+    expect(product(["A-1"])).toBe(1050);
+    expect(product([OTHER])).toBe(1000);
+  });
+
+  test("lists customers by name", () => {
+    expect(customerOptions(rows)).toEqual([
+      { value: "id:a", label: "Anna B.", count: 2 },
+      { value: "id:b", label: "Ben", count: 1 },
+    ]);
+  });
+
+  test("lists products with Sonstige last", () => {
+    expect(productOptions(rows).map((option) => option.value)).toEqual([
+      "A-1",
+      "EPYC-01",
+      OTHER,
+    ]);
+  });
+
+  test("ends a bucket on the day before the next one", () => {
+    expect(bucketEnd("2026-02-01", "month")).toBe("2026-02-28");
+    expect(bucketEnd("2026-11-02", "week")).toBe("2026-11-08");
+    expect(bucketEnd("2026-11-02", "day")).toBe("2026-11-02");
+  });
+});
 
 describe("forecast in the statistics", () => {
   const steady = everyDay("2026-07-01", "2026-11-06");
@@ -478,6 +553,75 @@ describe("rows from the ledger", () => {
       "id:cus_max2",
       "name:max muster",
       "name:lena demo",
+    ]);
+  });
+
+  test("gives transactions the same customer and product as the statistics", () => {
+    const db = openDatabase(":memory:");
+    db.insert(transactions)
+      .values([
+        {
+          ...entry,
+          id: "a1",
+          name: "Anna Beispiel",
+          customerId: "cus_anna",
+          occurredAt: entry.occurredAt + 60,
+        },
+        { ...entry, id: "a2", name: " anna  beispiel ", description: null },
+        {
+          ...entry,
+          id: "a3",
+          name: "Anna Beispiel",
+          purpose: "Spende",
+          description: "Spende",
+        },
+        {
+          ...entry,
+          id: "p1",
+          kind: "payout",
+          name: "Stripe",
+          purpose: "Auszahlung",
+          description: "Auszahlung",
+        },
+        {
+          ...entry,
+          id: "f1",
+          source: "fees",
+          kind: "stripe_fee",
+          name: "Stripe",
+          method: "2 Stripe-Transaktionen",
+        },
+      ])
+      .run();
+    const now = Date.parse("2026-11-06T12:00:00Z") / 1000;
+    const rows = listTransactions(db, base, now);
+    expect(
+      rows.map((row) => [
+        row.id,
+        row.customerKey,
+        row.customerName,
+        row.productLabel,
+        row.countsAsRevenue,
+      ]),
+    ).toEqual([
+      ["a1", "id:cus_anna", "Anna Beispiel", "EPYC-01", true],
+      ["p1", "name:stripe", "Stripe", null, false],
+      ["f1", null, null, null, false],
+      ["a3", "id:cus_anna", "Anna Beispiel", OTHER, true],
+      ["a2", "id:cus_anna", "Anna Beispiel", "EPYC-01", true],
+    ]);
+    expect(rows.find((row) => row.id === "f1")).toMatchObject({
+      method: null,
+      feeBasis: "2 Stripe-Transaktionen",
+    });
+    expect(
+      listStatRows(db, base)
+        .filter((row) => row.customer)
+        .map((row) => [row.customer, row.customerName, row.product]),
+    ).toEqual([
+      ["id:cus_anna", "Anna Beispiel", "EPYC-01"],
+      ["id:cus_anna", "Anna Beispiel", "EPYC-01"],
+      ["id:cus_anna", "Anna Beispiel", OTHER],
     ]);
   });
 

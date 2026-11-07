@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/sidebar";
 import { Tour } from "@/components/tour";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
+import { openPage } from "@/lib/navigate";
 import { PreferencesProvider, usePreferences } from "@/lib/preferences";
 import { usePresence } from "@/lib/presence";
 import { ShortcutsProvider, useShortcut } from "@/lib/shortcuts";
@@ -18,21 +19,17 @@ import { SetupWizard } from "@/pages/setup-wizard";
 import { StatisticsPage } from "@/pages/statistics";
 import { TransactionsPage } from "@/pages/transactions";
 
-function go(route: string): void {
-  window.location.hash = `#/${route}`;
-}
-
 function GlobalShortcuts() {
   const { togglePrivacy } = usePreferences();
   const [helpOpen, setHelpOpen] = useState(false);
 
   useShortcut("privacy", togglePrivacy);
   useShortcut("help", () => setHelpOpen(true));
-  useShortcut("go-transaktionen", () => go("transaktionen"));
-  useShortcut("go-statistiken", () => go("statistiken"));
-  useShortcut("go-exporte", () => go("exporte"));
-  useShortcut("go-audit-log", () => go("audit-log"));
-  useShortcut("go-einstellungen", () => go("einstellungen"));
+  useShortcut("go-transaktionen", () => openPage("transaktionen"));
+  useShortcut("go-statistiken", () => openPage("statistiken"));
+  useShortcut("go-exporte", () => openPage("exporte"));
+  useShortcut("go-audit-log", () => openPage("audit-log"));
+  useShortcut("go-einstellungen", () => openPage("einstellungen"));
 
   return (
     <>

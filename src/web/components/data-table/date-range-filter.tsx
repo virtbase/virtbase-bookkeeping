@@ -1,5 +1,6 @@
 import { de } from "@daypicker/react/locale";
-import { CalendarDays, XCircle } from "lucide-react";
+import { CalendarDays } from "lucide-react";
+import { FilterTrigger } from "@/components/data-table/filter-trigger";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -7,31 +8,41 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
-import { formatIsoDay } from "@/lib/format";
+import { dateOfDay, dayOfDate, formatIsoRange } from "@/lib/format";
 
-function toDate(day: string | null): Date | undefined {
-  if (!day) {
-    return undefined;
-  }
-  const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
-  return new Date(year, month - 1, date);
+interface RangeCalendarProps {
+  from: string | null;
+  to: string | null;
+  defaultMonth: string | null;
+  autoFocus?: boolean;
+  onChange: (from: string | null, to: string | null) => void;
 }
 
-function toDay(date: Date | undefined): string | null {
-  if (!date) {
-    return null;
-  }
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
-function rangeLabel(from: string, to: string | null): string {
-  if (!to || to === from) {
-    return formatIsoDay(from);
-  }
-  return `${formatIsoDay(from)} – ${formatIsoDay(to)}`;
+export function RangeCalendar({
+  from,
+  to,
+  defaultMonth,
+  autoFocus,
+  onChange,
+}: RangeCalendarProps) {
+  return (
+    <Calendar
+      autoFocus={autoFocus}
+      mode="range"
+      locale={de}
+      captionLayout="dropdown"
+      startMonth={new Date(2020, 0)}
+      endMonth={new Date()}
+      defaultMonth={dateOfDay(defaultMonth)}
+      selected={{ from: dateOfDay(from), to: dateOfDay(to) }}
+      onSelect={(range) =>
+        onChange(
+          range?.from ? dayOfDate(range.from) : null,
+          range?.to ? dayOfDate(range.to) : null,
+        )
+      }
+    />
+  );
 }
 
 interface DateRangeFilterProps {
@@ -50,33 +61,26 @@ export function DateRangeFilter({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="font-medium">
-          {from ? <XCircle /> : <CalendarDays />}
-          {title}
-          {from && (
-            <>
-              <Separator
-                orientation="vertical"
-                className="mx-0.5 data-[orientation=vertical]:h-4"
-              />
+        <FilterTrigger
+          title={title}
+          icon={CalendarDays}
+          active={from !== null}
+          summary={
+            from && (
               <span className="font-normal tabular-nums">
-                {rangeLabel(from, to)}
+                {formatIsoRange(from, to)}
               </span>
-            </>
-          )}
-        </Button>
+            )
+          }
+        />
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
+        <RangeCalendar
           autoFocus
-          mode="range"
-          locale={de}
-          captionLayout="dropdown"
-          startMonth={new Date(2020, 0)}
-          endMonth={new Date()}
-          defaultMonth={toDate(from)}
-          selected={{ from: toDate(from), to: toDate(to) }}
-          onSelect={(range) => onChange(toDay(range?.from), toDay(range?.to))}
+          from={from}
+          to={to}
+          defaultMonth={from}
+          onChange={onChange}
         />
         <div className="flex justify-end border-t p-2">
           <Button

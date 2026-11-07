@@ -1,25 +1,35 @@
 import { formatSignedEuro } from "@shared/money.ts";
 import type { BatchDto, BatchStatus, ExportsDto } from "@shared/types.ts";
-import type { PaginationState, SortingState } from "@tanstack/react-table";
+import type { RowSelectionState, SortingState } from "@tanstack/react-table";
 import { useTable } from "@tanstack/react-table";
+import type { LucideIcon } from "lucide-react";
 import {
   Ban,
   CircleCheck,
   Copy,
   Ellipsis,
+  FileClock,
   FileDown,
   FolderOpen,
   Hash,
+  List,
+  ScrollText,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { AppColumn } from "@/components/data-table/data-table";
-import { DataTable } from "@/components/data-table/data-table";
+import {
+  DataTable,
+  SortHeader,
+  selectColumn,
+} from "@/components/data-table/data-table";
 import { DateRangeFilter } from "@/components/data-table/date-range-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { FilterChip } from "@/components/data-table/filter-chip";
 import { SearchInput } from "@/components/data-table/search-input";
+import { SelectionBar } from "@/components/data-table/selection-bar";
 import { Private } from "@/components/private";
 import type { Tone } from "@/components/status-badge";
 import { StatusBadge } from "@/components/status-badge";
@@ -46,16 +56,23 @@ import {
   BATCH_STATUS_LABELS,
   EMPTY_EXPORT_FILTER,
   filterBatches,
-  isFiltered,
   NO_ACCOUNT_LABEL,
 } from "@/lib/export-filter";
+import { useStoredFilter } from "@/lib/filter-state";
 import {
   countLabel,
   formatDayRange,
   formatIsoDay,
   formatStamp,
 } from "@/lib/format";
-import { useSessionState } from "@/lib/use-session-state";
+import { EXPORTS_FILTER, showAudit, showTransactions } from "@/lib/navigate";
+import { contextFilter, missingDaysFilter } from "@/lib/transaction-filter";
+
+const STATUS_ICONS: Record<BatchStatus, LucideIcon> = {
+  pending: FileClock,
+  imported: CircleCheck,
+  void: Ban,
+};
 
 const STATUS_TONES: Record<BatchStatus, Tone> = {
   pending: "amber",
@@ -71,18 +88,24 @@ async function copyWithToast(value: string, message: string): Promise<void> {
   }
 }
 
+function showRows(batch: BatchDto): void {
+  showTransactions(contextFilter({ batchId: batch.id }));
+}
+
 export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
   const [data, setData] = useState<ExportsDto | null>(null);
   const [voiding, setVoiding] = useState<BatchDto | null>(null);
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 25,
-  });
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [filter, setFilter] = useSessionState(
-    "exports.filter",
-    EMPTY_EXPORT_FILTER,
-  );
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [marking, setMarking] = useState(false);
+  const {
+    filter,
+    filtered,
+    update,
+    replace: setFilter,
+    pagination,
+    setPagination,
+  } = useStoredFilter<ExportFilter>(EXPORTS_FILTER, EMPTY_EXPORT_FILTER, 25);
 
   const load = useCallback(async () => {
     setData(await api.exports());
@@ -126,20 +149,17 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
     () => filterBatches(batches, filter),
     [batches, filter],
   );
-  const filtered = isFiltered(filter);
-
-  const update = (change: Partial<ExportFilter>) => {
-    setFilter({ ...filter, ...change });
-    setPagination({ ...pagination, pageIndex: 0 });
-  };
 
   const columns = useMemo<AppColumn<BatchDto>[]>(
     () => [
+      selectColumn<BatchDto>(
+        "Alle ausstehenden Exporte auswählen",
+        (batch) => `Export ${batch.id} auswählen`,
+      ),
       {
         accessorKey: "id",
-        size: 64,
-        enableSorting: false,
-        header: "Nr.",
+        size: 72,
+        header: ({ column }) => <SortHeader column={column} label="Nr." />,
         cell: ({ row }) => (
           <span className="tabular-nums">#{row.original.id}</span>
         ),
@@ -147,8 +167,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
       {
         accessorKey: "createdAt",
         size: 160,
-        enableSorting: false,
-        header: "Erstellt",
+        header: ({ column }) => <SortHeader column={column} label="Erstellt" />,
         cell: ({ row }) => (
           <span className="text-muted-foreground tabular-nums">
             {formatStamp(row.original.createdAt)}
@@ -158,23 +177,23 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
       {
         accessorKey: "account",
         size: 120,
-        enableSorting: false,
-        header: "Konto",
+        header: ({ column }) => <SortHeader column={column} label="Konto" />,
         cell: ({ row }) => row.original.account || "—",
       },
       {
         id: "range",
+        accessorFn: (batch) => batch.firstAt,
         size: 0,
-        enableSorting: false,
-        header: "Zeitraum",
+        header: ({ column }) => <SortHeader column={column} label="Zeitraum" />,
         cell: ({ row }) =>
           formatDayRange(row.original.firstAt, row.original.lastAt),
       },
       {
         accessorKey: "rowCount",
-        size: 80,
-        enableSorting: false,
-        header: () => <div className="text-right">Zeilen</div>,
+        size: 96,
+        header: ({ column }) => (
+          <SortHeader column={column} label="Zeilen" align="right" />
+        ),
         cell: ({ row }) => (
           <div className="text-right tabular-nums">{row.original.rowCount}</div>
         ),
@@ -182,8 +201,9 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
       {
         accessorKey: "netCents",
         size: 128,
-        enableSorting: false,
-        header: () => <div className="text-right">Saldo</div>,
+        header: ({ column }) => (
+          <SortHeader column={column} label="Saldo" align="right" />
+        ),
         cell: ({ row }) => (
           <div className="text-right font-mono text-[13px]">
             <Private>{formatSignedEuro(row.original.netCents)}</Private>
@@ -193,8 +213,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
       {
         accessorKey: "status",
         size: 160,
-        enableSorting: false,
-        header: "Status",
+        header: ({ column }) => <SortHeader column={column} label="Status" />,
         cell: ({ row }) => (
           <StatusBadge tone={STATUS_TONES[row.original.status]}>
             {BATCH_STATUS_LABELS[row.original.status]}
@@ -231,6 +250,19 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
                     <DropdownMenuSeparator />
                   </>
                 )}
+                <DropdownMenuItem onClick={() => showRows(batch)}>
+                  <List />
+                  Zeilen anzeigen
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    showAudit({ target: { type: "export", id: batch.id } })
+                  }
+                >
+                  <ScrollText />
+                  Verlauf anzeigen
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => void run(() => api.revealExport(batch.id))}
                 >
@@ -285,10 +317,28 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
     columns,
     data: visible,
     getRowId: (row) => String(row.id),
-    state: { pagination, sorting, rowSelection: {} },
+    enableRowSelection: (row) => row.original.status === "pending",
+    state: { pagination, sorting, rowSelection },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
   });
+
+  const selected = visible.filter(
+    (batch) => batch.status === "pending" && rowSelection[String(batch.id)],
+  );
+
+  const markSelected = async () => {
+    setMarking(true);
+    await run(async () => {
+      await Promise.all(selected.map((batch) => api.markImported(batch.id)));
+      toast(
+        `${countLabel(selected.length, "Export", "Exporte")} als importiert markiert.`,
+      );
+      setRowSelection({});
+    });
+    setMarking(false);
+  };
 
   const missing = data?.missingDays ?? [];
   const accountOptions = [
@@ -320,6 +370,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
           options={(["pending", "imported", "void"] as const).map((value) => ({
             value,
             label: BATCH_STATUS_LABELS[value],
+            icon: STATUS_ICONS[value],
             count: batches.filter((batch) => batch.status === value).length,
           }))}
         />
@@ -329,11 +380,18 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
           to={filter.to}
           onChange={(from, to) => update({ from, to })}
         />
+        {filter.batchId !== null && (
+          <FilterChip
+            title="Export"
+            label={`Export #${filter.batchId}`}
+            onRemove={() => update({ batchId: null })}
+          />
+        )}
         {filtered && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => update(EMPTY_EXPORT_FILTER)}
+            onClick={() => setFilter(EMPTY_EXPORT_FILTER)}
           >
             Zurücksetzen
             <X />
@@ -341,10 +399,17 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
         )}
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
           {missing.length > 0 && (
-            <StatusBadge tone="amber">
-              Ohne Export: {missing.slice(0, 4).map(formatIsoDay).join(", ")}
-              {missing.length > 4 ? ` und ${missing.length - 4} weitere` : ""}
-            </StatusBadge>
+            <button
+              type="button"
+              className="rounded-full hover:opacity-80 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              title="Zeilen ohne Export anzeigen"
+              onClick={() => showTransactions(missingDaysFilter(missing))}
+            >
+              <StatusBadge tone="amber">
+                Ohne Export: {missing.slice(0, 4).map(formatIsoDay).join(", ")}
+                {missing.length > 4 ? ` und ${missing.length - 4} weitere` : ""}
+              </StatusBadge>
+            </button>
           )}
           <span className="text-muted-foreground">
             {data?.coveredUntil
@@ -356,6 +421,7 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
 
       <DataTable
         table={table}
+        onOpenRow={showRows}
         footer={
           filtered
             ? `${visible.length} von ${countLabel(batches.length, "Export", "Exporten")}`
@@ -369,6 +435,17 @@ export function ExportsPage({ onChanged }: { onChanged: () => Promise<void> }) {
               : "Noch keine Exporte."
         }
       />
+
+      <SelectionBar count={selected.length} onClear={() => setRowSelection({})}>
+        <Button
+          size="sm"
+          disabled={marking}
+          onClick={() => void markSelected()}
+        >
+          <CircleCheck />
+          In Lexware importiert
+        </Button>
+      </SelectionBar>
 
       <Dialog
         open={voiding !== null}

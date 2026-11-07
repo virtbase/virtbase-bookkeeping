@@ -18,6 +18,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { KeyHint } from "@/components/shortcut-hint";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -75,6 +76,37 @@ export function SortHeader<TData extends RowData>({
       )}
     </button>
   );
+}
+
+export function selectColumn<TData extends RowData>(
+  allLabel: string,
+  rowLabel: (row: TData) => string,
+): AppColumn<TData> {
+  return {
+    id: "select",
+    size: 40,
+    enableSorting: false,
+    header: ({ table }) => (
+      <Checkbox
+        aria-label={allLabel}
+        className="translate-y-0.5"
+        checked={
+          table.getIsAllRowsSelected() ||
+          (table.getIsSomeRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllRowsSelected(value === true)}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label={rowLabel(row.original)}
+        className="translate-y-0.5"
+        checked={row.getIsSelected()}
+        disabled={!row.getCanSelect()}
+        onCheckedChange={(value) => row.toggleSelected(value === true)}
+      />
+    ),
+  };
 }
 
 const FLEXIBLE_COLUMN_WIDTH = 140;

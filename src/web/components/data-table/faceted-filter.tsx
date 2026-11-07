@@ -1,11 +1,12 @@
 import type { LucideIcon } from "lucide-react";
-import { Check, PlusCircle, XCircle } from "lucide-react";
+import { Check, PlusCircle } from "lucide-react";
+import { FilterTrigger } from "@/components/data-table/filter-trigger";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
@@ -15,7 +16,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 export interface FilterOption<T extends string> {
@@ -30,6 +30,7 @@ interface FacetedFilterProps<T extends string> {
   options: FilterOption<T>[];
   selected: T[];
   onChange: (selected: T[]) => void;
+  searchable?: boolean;
 }
 
 export function FacetedFilter<T extends string>({
@@ -37,6 +38,7 @@ export function FacetedFilter<T extends string>({
   options,
   selected,
   onChange,
+  searchable = false,
 }: FacetedFilterProps<T>) {
   const toggle = (value: T) =>
     onChange(
@@ -48,42 +50,41 @@ export function FacetedFilter<T extends string>({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="font-medium">
-          {selected.length > 0 ? <XCircle /> : <PlusCircle />}
-          {title}
-          {selected.length > 0 && (
-            <>
-              <Separator
-                orientation="vertical"
-                className="mx-0.5 data-[orientation=vertical]:h-4"
-              />
-              {selected.length > 2 ? (
-                <Badge
-                  variant="secondary"
-                  className="rounded-sm px-1 font-normal"
-                >
-                  {selected.length} gewählt
-                </Badge>
-              ) : (
-                options
-                  .filter((option) => selected.includes(option.value))
-                  .map((option) => (
-                    <Badge
-                      key={option.value}
-                      variant="secondary"
-                      className="rounded-sm px-1 font-normal"
-                    >
-                      {option.icon && <option.icon />}
-                      {option.label}
-                    </Badge>
-                  ))
-              )}
-            </>
-          )}
-        </Button>
+        <FilterTrigger
+          title={title}
+          icon={PlusCircle}
+          active={selected.length > 0}
+          summary={
+            selected.length > 2 ? (
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-1 font-normal"
+              >
+                {selected.length} gewählt
+              </Badge>
+            ) : (
+              options
+                .filter((option) => selected.includes(option.value))
+                .map((option) => (
+                  <Badge
+                    key={option.value}
+                    variant="secondary"
+                    className="rounded-sm px-1 font-normal"
+                  >
+                    {option.icon && <option.icon />}
+                    {option.label}
+                  </Badge>
+                ))
+            )
+          }
+        />
       </PopoverTrigger>
-      <PopoverContent className="w-52 p-0" align="start">
+      <PopoverContent
+        className={cn("p-0", searchable ? "w-64" : "w-52")}
+        align="start"
+      >
         <Command>
+          {searchable && <CommandInput placeholder={`${title} suchen...`} />}
           <CommandList>
             <CommandEmpty>Keine Einträge vorhanden.</CommandEmpty>
             <CommandGroup>
@@ -92,6 +93,8 @@ export function FacetedFilter<T extends string>({
                 return (
                   <CommandItem
                     key={option.value}
+                    value={option.value}
+                    keywords={[option.label]}
                     onSelect={() => toggle(option.value)}
                   >
                     <div

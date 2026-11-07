@@ -10,24 +10,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { formatIsoDay } from "@/lib/format";
+import { dateOfDay, dayOfDate, formatIsoDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_TIME = "23:59";
-
-function toDate(day: string): Date | undefined {
-  if (!day) {
-    return undefined;
-  }
-  const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
-  return new Date(year, month - 1, date);
-}
-
-function toDay(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
 
 export function parseTime(text: string): string | null {
   const match = /^([01]\d|2[0-3]):?([0-5]\d)$/.exec(text.trim());
@@ -52,7 +38,7 @@ export function DateTimePicker({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [day = "", time = DEFAULT_TIME] = value ? value.split("T") : [];
-  const selected = toDate(day);
+  const selected = dateOfDay(day);
   const today = new Date();
   const timeId = `${id}-time`;
 
@@ -92,7 +78,7 @@ export function DateTimePicker({
           defaultMonth={selected ?? today}
           onSelect={(date) => {
             if (date) {
-              onChange(`${toDay(date)}T${time}`);
+              onChange(`${dayOfDate(date)}T${time}`);
             }
           }}
         />

@@ -108,6 +108,14 @@ export function Sidebar({ route, summary, dark, onToggleTheme }: SidebarProps) {
                 {summary.openCount}
               </span>
             ) : null}
+            {target === "exporte" && summary && summary.pendingExports > 0 ? (
+              <span
+                className="rounded-full bg-status-amber px-1.5 text-status-amber-foreground text-xs tabular-nums leading-4 group-hover/nav:hidden"
+                title="Exporte, die noch nicht in Lexware importiert sind"
+              >
+                {summary.pendingExports}
+              </span>
+            ) : null}
           </a>
         ))}
       </div>

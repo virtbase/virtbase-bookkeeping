@@ -3,8 +3,8 @@ import type { BatchDto } from "../src/shared/types.ts";
 import {
   EMPTY_EXPORT_FILTER,
   filterBatches,
-  isFiltered,
 } from "../src/web/lib/export-filter.ts";
+import { matchesDefaults } from "../src/web/lib/filter-state.ts";
 
 const at = (iso: string) => Date.parse(iso) / 1000;
 
@@ -45,13 +45,25 @@ const ids = (change: Partial<typeof EMPTY_EXPORT_FILTER>) =>
 describe("filterBatches", () => {
   test("keeps everything without a filter", () => {
     expect(ids({})).toEqual([1, 2, 3]);
-    expect(isFiltered(EMPTY_EXPORT_FILTER)).toBe(false);
+    expect(matchesDefaults(EMPTY_EXPORT_FILTER, EMPTY_EXPORT_FILTER)).toBe(
+      true,
+    );
   });
 
   test("filters by account, including exports without one", () => {
     expect(ids({ accounts: ["Monero"] })).toEqual([2]);
     expect(ids({ accounts: [""] })).toEqual([3]);
     expect(ids({ accounts: ["Stripe", "Monero"] })).toEqual([1, 2]);
+  });
+
+  test("filters by the exact export number", () => {
+    expect(ids({ batchId: 2 })).toEqual([2]);
+    expect(
+      matchesDefaults(
+        { ...EMPTY_EXPORT_FILTER, batchId: 1 },
+        EMPTY_EXPORT_FILTER,
+      ),
+    ).toBe(false);
   });
 
   test("filters by status", () => {

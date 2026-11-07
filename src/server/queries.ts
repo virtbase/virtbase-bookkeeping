@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
+import { isPaymentKind, isRevenueKind } from "../shared/kinds.ts";
 import type { StatRow } from "../shared/statistics.ts";
-import { productLabel } from "../shared/statistics.ts";
+import { OTHER, productLabel } from "../shared/statistics.ts";
 import type {
   AuditEventDto,
   BatchDto,
@@ -63,12 +64,14 @@ export function listTransactions(
   const batches = activeBatches(db);
   const baseline = baselineEnd(settings);
   const start = syncStart(settings, now);
-  return db
+  const rows = db
     .select()
     .from(transactions)
     .where(eq(transactions.hidden, false))
     .orderBy(desc(transactions.occurredAt), desc(transactions.id))
-    .all()
+    .all();
+  const customers = customerIndex(rows);
+  return rows
     .filter(
       (row) =>
         row.source !== "stripe" ||
@@ -79,6 +82,10 @@ export function listTransactions(
       const batchId = batches.get(row.id) ?? null;
       const resolved =
         batchId === null ? resolveRow(row, settings) : frozenRow(row);
+      const status = statusOf(row, batchId, baseline);
+      const fees = row.source === "fees";
+      const counted = countsAsRevenue(row, status);
+      const customerKey = fees ? null : customers.keyOf(row);
       return {
         id: row.id,
         source: row.source,
@@ -91,9 +98,10 @@ export function listTransactions(
         amountCents: row.amountCents,
         stripeFeeCents: row.stripeFeeCents,
         passthroughFeeCents: row.passthroughFeeCents,
-        method: row.method,
+        method: fees ? null : row.method,
+        feeBasis: fees ? row.method : null,
         reviewReason: row.reviewReason,
-        status: statusOf(row, batchId, baseline),
+        status,
         batchId,
         xmrAtomic: row.xmrAtomic,
         xmrRate: row.xmrRate,
@@ -101,43 +109,53 @@ export function listTransactions(
         marketValueCents: row.marketValueCents,
         product: row.product,
         walletLabel: row.walletLabel,
+        customerKey,
+        customerName: customerKey ? customers.nameOf(customerKey) : null,
+        productLabel: productOf(row, counted),
+        countsAsRevenue: counted,
       };
     });
 }
 
-const REVENUE_KINDS = new Set([
-  "charge",
-  "payment",
-  "refund",
-  "payment_refund",
-  "payment_failure_refund",
-  "incoming",
-]);
-const PAYMENT_KINDS = new Set(["charge", "payment", "incoming"]);
+function productOf(row: Row, counted: boolean): string | null {
+  if (row.source === "fees") {
+    return null;
+  }
+  const label = productLabel(row.product ?? row.description ?? row.purpose);
+  return label ?? (counted ? OTHER : null);
+}
+
+function countsAsRevenue(row: Row, status: TransactionStatus): boolean {
+  const unconfirmed = row.source === "monero" && status === "review";
+  return isRevenueKind(row.kind) && !row.hidden && !row.ignored && !unconfirmed;
+}
 
 function nameKey(name: string | null): string | null {
   const key = name?.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE");
   return key || null;
 }
 
-type CustomerRow = Pick<
-  typeof transactions.$inferSelect,
-  "name" | "customerId"
->;
+type CustomerRow = Pick<Row, "name" | "customerId" | "occurredAt">;
 
-function customerKeys(
-  rows: CustomerRow[],
-): (row: CustomerRow) => string | null {
+interface CustomerIndex {
+  keyOf: (row: CustomerRow) => string | null;
+  nameOf: (key: string) => string | null;
+}
+
+function customerIndex(rows: CustomerRow[]): CustomerIndex {
   const idsByName = new Map<string, Set<string>>();
   for (const row of rows) {
+    if (!row.customerId) {
+      continue;
+    }
     const name = nameKey(row.name);
-    if (name && row.customerId) {
+    if (name) {
       const ids = idsByName.get(name) ?? new Set<string>();
       ids.add(row.customerId);
       idsByName.set(name, ids);
     }
   }
-  return (row) => {
+  const keyOf = (row: CustomerRow): string | null => {
     if (row.customerId) {
       return `id:${row.customerId}`;
     }
@@ -149,23 +167,33 @@ function customerKeys(
     const [only] = ids ?? [];
     return ids?.size === 1 && only ? `id:${only}` : `name:${name}`;
   };
+  const names = new Map<string, { name: string; at: number }>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const name = row.name?.trim();
+    const seen = key ? names.get(key) : undefined;
+    if (key && name && (!seen || row.occurredAt > seen.at)) {
+      names.set(key, { name, at: row.occurredAt });
+    }
+  }
+  return { keyOf, nameOf: (key) => names.get(key)?.name ?? null };
 }
 
 export function listStatRows(db: Db, settings: SettingsDto): StatRow[] {
   const batches = activeBatches(db);
   const baseline = baselineEnd(settings);
   const rows = db.select().from(transactions).all();
-  const customerOf = customerKeys(rows);
+  const customers = customerIndex(rows);
   return rows.flatMap((row) => {
     if (row.source === "fees") {
       return [];
     }
     const status = statusOf(row, batches.get(row.id) ?? null, baseline);
-    const unconfirmed = row.source === "monero" && status === "review";
-    const counted = REVENUE_KINDS.has(row.kind) && !row.hidden && !row.ignored;
-    if (row.source === "monero" && (!counted || unconfirmed)) {
+    const counted = countsAsRevenue(row, status);
+    if (row.source === "monero" && !counted) {
       return [];
     }
+    const customer = counted ? customers.keyOf(row) : null;
     return [
       {
         day: localDay(row.occurredAt),
@@ -175,9 +203,10 @@ export function listStatRows(db: Db, settings: SettingsDto): StatRow[] {
         revenueCents: counted ? row.amountCents : 0,
         stripeFeeCents: row.stripeFeeCents,
         passthroughFeeCents: row.passthroughFeeCents,
-        product: productLabel(row.product ?? row.description ?? row.purpose),
-        payment: counted && PAYMENT_KINDS.has(row.kind),
-        customer: counted ? customerOf(row) : null,
+        product: productOf(row, counted),
+        payment: counted && isPaymentKind(row.kind),
+        customer,
+        customerName: customer ? customers.nameOf(customer) : null,
       },
     ];
   });

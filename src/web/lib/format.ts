@@ -76,3 +76,23 @@ export function formatDayRange(first: number, last: number): string {
   const to = formatDay(last);
   return from === to ? from : `${from.slice(0, 6)}–${to}`;
 }
+
+export function dateOfDay(day: string | null): Date | undefined {
+  if (!day) {
+    return undefined;
+  }
+  const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
+  return new Date(year, month - 1, date);
+}
+
+export function dayOfDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+export function formatIsoRange(from: string, to: string | null): string {
+  return !to || to === from
+    ? formatIsoDay(from)
+    : `${formatIsoDay(from)} – ${formatIsoDay(to)}`;
+}

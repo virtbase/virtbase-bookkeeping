@@ -1,3 +1,7 @@
+import {
+  REVIEW_MISSING_NAME,
+  REVIEW_UNKNOWN_TYPE,
+} from "../../shared/kinds.ts";
 import { STRIPE_NAME } from "../constants.ts";
 
 export interface FeeDetail {
@@ -259,9 +263,9 @@ export function mapBalanceTransaction(
 
   let reviewReason: string | null = null;
   if (!name) {
-    reviewReason = "Stripe liefert keinen Namen für diese Zahlung.";
+    reviewReason = REVIEW_MISSING_NAME;
   } else if (!known) {
-    reviewReason = `Unbekannter Stripe-Typ: ${transaction.type}`;
+    reviewReason = `${REVIEW_UNKNOWN_TYPE}: ${transaction.type}`;
   }
 
   return {

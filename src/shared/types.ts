@@ -20,6 +20,7 @@ export interface TransactionDto {
   stripeFeeCents: number;
   passthroughFeeCents: number;
   method: string | null;
+  feeBasis: string | null;
   reviewReason: string | null;
   status: TransactionStatus;
   batchId: number | null;
@@ -29,6 +30,10 @@ export interface TransactionDto {
   marketValueCents: number | null;
   product: string | null;
   walletLabel: string | null;
+  customerKey: string | null;
+  customerName: string | null;
+  productLabel: string | null;
+  countsAsRevenue: boolean;
 }
 
 export interface SummaryDto {
@@ -43,6 +48,7 @@ export interface SummaryDto {
   setupRequired: boolean;
   update: UpdateDto | null;
   openFeeMonths: OpenFeeMonthDto[];
+  pendingExports: number;
 }
 
 export interface UpdateDto {

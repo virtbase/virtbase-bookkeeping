@@ -1,34 +1,50 @@
+import type { KindGroup } from "@shared/kinds.ts";
+import { KIND_GROUPS, kindGroup } from "@shared/kinds.ts";
 import { formatEuro, formatSignedEuro, plainAmount } from "@shared/money.ts";
 import type {
   BatchDto,
   OpenFeeMonthDto,
-  Source,
   SummaryDto,
   TransactionDto,
   TransactionStatus,
 } from "@shared/types.ts";
 import type { RowSelectionState, SortingState } from "@tanstack/react-table";
 import { useTable } from "@tanstack/react-table";
+import type { LucideIcon } from "lucide-react";
 import {
+  BanknoteArrowDown,
+  BanknoteArrowUp,
   CalendarCheck,
-  CalendarDays,
+  CircleHelp,
   Download,
   Ellipsis,
   Eye,
   EyeOff,
   PanelRightOpen,
+  Receipt,
   RefreshCw,
+  Scale,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
+import { AmountFilter } from "@/components/data-table/amount-filter";
 import type { AppColumn } from "@/components/data-table/data-table";
-import { DataTable, SortHeader } from "@/components/data-table/data-table";
+import {
+  DataTable,
+  SortHeader,
+  selectColumn,
+} from "@/components/data-table/data-table";
+import type { FilterOption } from "@/components/data-table/faceted-filter";
 import { FacetedFilter } from "@/components/data-table/faceted-filter";
 import { dataTableFeatures } from "@/components/data-table/features";
+import { FilterChip } from "@/components/data-table/filter-chip";
+import { PeriodFilter } from "@/components/data-table/period-filter";
 import { SearchInput } from "@/components/data-table/search-input";
+import { SelectionBar } from "@/components/data-table/selection-bar";
 import { Private } from "@/components/private";
 import { ShortcutHint } from "@/components/shortcut-hint";
 import type { Tone } from "@/components/status-badge";
@@ -43,13 +59,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
-import { countLabel, formatMonth, formatStamp, rowLabel } from "@/lib/format";
+import { useStoredFilter } from "@/lib/filter-state";
+import {
+  countLabel,
+  formatMonth,
+  formatStamp,
+  isoDay,
+  rowLabel,
+} from "@/lib/format";
+import { TRANSACTIONS_FILTER } from "@/lib/navigate";
 import { usePageActions } from "@/lib/page-actions";
+import { methodIcon } from "@/lib/payment-methods";
 import { usePrivacy } from "@/lib/preferences";
 import { selectedVisibleRows } from "@/lib/selection";
 import { useShortcut } from "@/lib/shortcuts";
 import { SOURCES } from "@/lib/sources";
-import { useSessionState } from "@/lib/use-session-state";
+import type { TransactionFilter } from "@/lib/transaction-filter";
+import {
+  customerLabel,
+  DEFAULT_TRANSACTION_FILTER,
+  filterTransactions,
+  KIND_LABELS,
+  OPEN_FEES_FILTER,
+  reviewKeyOf,
+  reviewLabel,
+} from "@/lib/transaction-filter";
 import { ExportDialog } from "@/pages/export-dialog";
 import { TransactionSheet } from "@/pages/transaction-sheet";
 
@@ -60,39 +94,47 @@ const STATUS: Record<TransactionStatus, { label: string; tone: Tone }> = {
   ignored: { label: "Ausgeblendet", tone: "neutral" },
 };
 
-const RANGES = [
-  "Seit letztem Export",
-  "Diese Woche",
-  "Letzter Monat",
-  "Dieses Jahr",
-] as const;
-type Range = (typeof RANGES)[number];
+const KIND_ICONS: Record<KindGroup, LucideIcon> = {
+  payment: BanknoteArrowDown,
+  refund: Undo2,
+  payout: BanknoteArrowUp,
+  adjustment: Scale,
+  fee: Receipt,
+  other: CircleHelp,
+};
 
-const DEFAULT_STATUSES: TransactionStatus[] = ["ready", "review"];
 const HOVER_COPY = "opacity-0 group-hover/row:opacity-100";
 const MONERO_POLL_MS = 2000;
 
-function rangeFilter(
-  range: Range,
-  now: Date,
-): (row: TransactionDto) => boolean {
-  const unix = (date: Date) => date.getTime() / 1000;
-  if (range === "Diese Woche") {
-    const start = new Date(now);
-    start.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    start.setHours(0, 0, 0, 0);
-    return (row) => row.occurredAt >= unix(start);
+interface OptionStyle<T extends string> {
+  label: (value: T) => string;
+  icon?: (value: T) => LucideIcon;
+  order?: readonly T[];
+}
+
+function optionsOf<T extends string>(
+  rows: TransactionDto[],
+  pick: (row: TransactionDto) => T | null,
+  { label: labelOf, icon: iconOf, order }: OptionStyle<T>,
+): FilterOption<T>[] {
+  const counts = new Map<T, number>();
+  for (const row of rows) {
+    const value = pick(row);
+    if (value !== null) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
   }
-  if (range === "Letzter Monat") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    return (row) => row.occurredAt >= unix(start) && row.occurredAt < unix(end);
-  }
-  if (range === "Dieses Jahr") {
-    const start = new Date(now.getFullYear(), 0, 1);
-    return (row) => row.occurredAt >= unix(start);
-  }
-  return (row) => row.status !== "exported" || row.batchId !== null;
+  const values = order
+    ? order.filter((value) => counts.has(value))
+    : [...counts.keys()].sort((a, b) =>
+        labelOf(a).localeCompare(labelOf(b), "de-DE"),
+      );
+  return values.map((value) => ({
+    value,
+    label: labelOf(value),
+    icon: iconOf?.(value),
+    count: counts.get(value) ?? 0,
+  }));
 }
 
 function monthList(months: OpenFeeMonthDto[]): string {
@@ -111,24 +153,22 @@ export function TransactionsPage({
   onChanged,
 }: TransactionsPageProps) {
   const [rows, setRows] = useState<TransactionDto[] | null>(null);
-  const [search, setSearch] = useSessionState("transactions.search", "");
-  const [statuses, setStatuses] = useSessionState<TransactionStatus[]>(
-    "transactions.statuses",
-    DEFAULT_STATUSES,
-  );
-  const [sources, setSources] = useSessionState<Source[]>(
-    "transactions.sources",
-    [],
-  );
-  const [range, setRange] = useSessionState<Range>(
-    "transactions.range",
-    "Seit letztem Export",
-  );
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [sorting, setSorting] = useState<SortingState>([
     { id: "occurredAt", desc: true },
   ]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
+  const {
+    filter,
+    filtered,
+    update,
+    replace: setFilter,
+    pagination,
+    setPagination,
+  } = useStoredFilter<TransactionFilter>(
+    TRANSACTIONS_FILTER,
+    DEFAULT_TRANSACTION_FILTER,
+    50,
+  );
   const { mask } = usePrivacy();
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -262,37 +302,34 @@ export function TransactionsPage({
     [load, onChanged],
   );
 
-  const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const inRange = rangeFilter(range, new Date());
-    return (rows ?? []).filter(
-      (row) =>
-        (statuses.length === 0 || statuses.includes(row.status)) &&
-        (sources.length === 0 || sources.includes(row.source)) &&
-        inRange(row) &&
-        (!query ||
-          `${row.name ?? ""} ${row.purpose}`.toLowerCase().includes(query)),
-    );
-  }, [rows, search, statuses, sources, range]);
+  const allRows = useMemo(() => rows ?? [], [rows]);
+  const today = isoDay(Math.floor(Date.now() / 1000));
+  const visible = useMemo(
+    () => filterTransactions(allRows, filter, today),
+    [allRows, filter, today],
+  );
+  const facets = useMemo(
+    () => ({
+      kinds: optionsOf<KindGroup>(allRows, (row) => kindGroup(row.kind), {
+        label: (value) => KIND_LABELS[value],
+        icon: (value) => KIND_ICONS[value],
+        order: KIND_GROUPS,
+      }),
+      reasons: optionsOf(allRows, reviewKeyOf, { label: reviewLabel }),
+      methods: optionsOf(allRows, (row) => row.method, {
+        label: (value) => value,
+        icon: methodIcon,
+      }),
+    }),
+    [allRows],
+  );
 
   const columns = useMemo<AppColumn<TransactionDto>[]>(
     () => [
       {
-        id: "select",
-        size: 40,
-        enableSorting: false,
-        header: ({ table }) => (
-          <Checkbox
-            aria-label="Alle bereiten Zeilen auswählen"
-            className="translate-y-0.5"
-            checked={
-              table.getIsAllRowsSelected() ||
-              (table.getIsSomeRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllRowsSelected(value === true)
-            }
-          />
+        ...selectColumn<TransactionDto>(
+          "Alle bereiten Zeilen auswählen",
+          () => "Zeile auswählen",
         ),
         cell: ({ row, table }) => (
           <Checkbox
@@ -481,14 +518,66 @@ export function TransactionsPage({
 
   const selected = selectedVisibleRows(visible, rowSelection);
   const net = selected.reduce((sum, row) => sum + row.amountCents, 0);
+  const visibleSum = visible.reduce((sum, row) => sum + row.amountCents, 0);
   const count = (predicate: (row: TransactionDto) => boolean) =>
-    (rows ?? []).filter(predicate).length;
-  const filtered =
-    search !== "" ||
-    sources.length > 0 ||
-    range !== "Seit letztem Export" ||
-    statuses.join() !== DEFAULT_STATUSES.join();
-  const openRow = (rows ?? []).find((row) => row.id === openId) ?? null;
+    allRows.filter(predicate).length;
+  const customerNames = filter.customers.map(
+    (key) => customerLabel(allRows, key) ?? "Ohne Namen",
+  );
+  const chips: {
+    title: string;
+    label: string;
+    clear: Partial<TransactionFilter>;
+  }[] = [];
+  if (filter.batchId !== null) {
+    chips.push({
+      title: "Export",
+      label: `Export #${filter.batchId}`,
+      clear: { batchId: null },
+    });
+  }
+  if (customerNames.length > 0) {
+    chips.push({
+      title: "Kunde",
+      label:
+        customerNames.length === 1
+          ? `Kunde: ${mask(customerNames[0] ?? "")}`
+          : countLabel(customerNames.length, "Kunde", "Kunden"),
+      clear: { customers: [] },
+    });
+  }
+  if (filter.products.length > 0) {
+    chips.push({
+      title: "Produkt",
+      label:
+        filter.products.length === 1
+          ? `Produkt: ${filter.products[0]}`
+          : countLabel(filter.products.length, "Produkt", "Produkte"),
+      clear: { products: [] },
+    });
+  }
+  if (filter.days.length > 0) {
+    chips.push({
+      title: "Tage ohne Export",
+      label: `${countLabel(filter.days.length, "Tag", "Tage")} ohne Export`,
+      clear: { days: [] },
+    });
+  }
+  if (filter.ids.length > 0) {
+    chips.push({
+      title: "Zeilen aus dem Audit-Log",
+      label: `${rowLabel(filter.ids.length)} aus dem Audit-Log`,
+      clear: { ids: [] },
+    });
+  }
+  if (filter.revenueOnly) {
+    chips.push({
+      title: "Umsätze wie in der Statistik",
+      label: "Umsätze wie in der Statistik",
+      clear: { revenueOnly: false },
+    });
+  }
+  const openRow = allRows.find((row) => row.id === openId) ?? null;
 
   const openMonths = summary?.openFeeMonths ?? [];
   const openFeeCents = openMonths.reduce(
@@ -496,20 +585,8 @@ export function TransactionsPage({
     0,
   );
 
-  const showOpenFees = () => {
-    setSearch("");
-    setStatuses(DEFAULT_STATUSES);
-    setRange("Seit letztem Export");
-    setSources(["fees"]);
-    setPagination({ ...pagination, pageIndex: 0 });
-  };
-
-  const resetFilters = () => {
-    setSearch("");
-    setSources([]);
-    setStatuses(DEFAULT_STATUSES);
-    setRange("Seit letztem Export");
-  };
+  const showOpenFees = () => setFilter(OPEN_FEES_FILTER);
+  const resetFilters = () => setFilter(DEFAULT_TRANSACTION_FILTER);
 
   const undoExport = async (batches: BatchDto[]) => {
     const ids = exportedIds.current;
@@ -583,13 +660,13 @@ export function TransactionsPage({
       >
         <SearchInput
           label="Transaktionen suchen"
-          value={search}
-          onChange={setSearch}
+          value={filter.search}
+          onChange={(search) => update({ search })}
         />
         <FacetedFilter
           title="Status"
-          selected={statuses}
-          onChange={setStatuses}
+          selected={filter.statuses}
+          onChange={(statuses) => update({ statuses })}
           options={(["ready", "review", "exported", "ignored"] as const).map(
             (value) => ({
               value,
@@ -600,8 +677,8 @@ export function TransactionsPage({
         />
         <FacetedFilter
           title="Quelle"
-          selected={sources}
-          onChange={setSources}
+          selected={filter.sources}
+          onChange={(sources) => update({ sources })}
           options={(["stripe", "monero", "fees"] as const).map((value) => ({
             value,
             label: SOURCES[value].label,
@@ -609,21 +686,36 @@ export function TransactionsPage({
             count: count((row) => row.source === value),
           }))}
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <CalendarDays />
-              {range}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {RANGES.map((option) => (
-              <DropdownMenuItem key={option} onClick={() => setRange(option)}>
-                {option}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <FacetedFilter
+          title="Typ"
+          selected={filter.kinds}
+          onChange={(kinds) => update({ kinds })}
+          options={facets.kinds}
+        />
+        {(facets.reasons.length > 0 || filter.reasons.length > 0) && (
+          <FacetedFilter
+            title="Prüfgrund"
+            selected={filter.reasons}
+            onChange={(reasons) => update({ reasons })}
+            options={facets.reasons}
+          />
+        )}
+        <FacetedFilter
+          title="Zahlungsart"
+          selected={filter.methods}
+          onChange={(methods) => update({ methods })}
+          options={facets.methods}
+        />
+        <AmountFilter value={filter} onChange={update} />
+        <PeriodFilter value={filter} today={today} onChange={update} />
+        {chips.map((chip) => (
+          <FilterChip
+            key={chip.title}
+            title={chip.title}
+            label={chip.label}
+            onRemove={() => update(chip.clear)}
+          />
+        ))}
         {filtered && (
           <Button variant="ghost" size="sm" onClick={resetFilters}>
             Zurücksetzen
@@ -677,11 +769,20 @@ export function TransactionsPage({
         table={table}
         stickyHeader
         onOpenRow={(row) => setOpenId(row.id)}
-        footer={`${selected.length} von ${rowLabel(visible.length)} ausgewählt`}
+        footer={
+          <>
+            <span>
+              {selected.length} von {rowLabel(visible.length)} ausgewählt
+            </span>
+            <span className="font-mono text-[13px] tabular-nums">
+              Summe <Private>{formatSignedEuro(visibleSum)}</Private>
+            </span>
+          </>
+        }
         empty={
           rows === null ? (
             "Lädt..."
-          ) : summary?.stripeConfigured ? (
+          ) : summary?.stripeConfigured || filtered ? (
             "Keine Treffer für diese Filter."
           ) : (
             <a className="underline" href="#/einstellungen">
@@ -691,45 +792,32 @@ export function TransactionsPage({
         }
       />
 
-      {selected.length > 0 && (
-        <div className="-translate-x-1/2 slide-in-from-bottom-4 fixed bottom-4 left-1/2 z-30 flex w-max max-w-[calc(100vw-2rem)] animate-in flex-wrap items-center justify-center gap-2 rounded-lg border bg-card p-1.5 shadow-lg duration-200">
-          <span className="flex h-8 items-center gap-1 rounded-md border border-dashed pr-1 pl-2.5">
-            {selected.length} ausgewählt
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Auswahl aufheben"
-              onClick={() => setRowSelection({})}
-            >
-              <X />
-            </Button>
-          </span>
-          <Separator
-            orientation="vertical"
-            className="data-[orientation=vertical]:h-5"
-          />
-          <span className="px-2 font-mono text-[13px] tabular-nums">
-            <Private>{formatSignedEuro(net)}</Private>
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              void setIgnored(
-                selected.map((row) => row.id),
-                true,
-              )
-            }
-          >
-            <EyeOff />
-            Ausblenden
-          </Button>
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Download />
-            CSV exportieren
-          </Button>
-        </div>
-      )}
+      <SelectionBar count={selected.length} onClear={() => setRowSelection({})}>
+        <Separator
+          orientation="vertical"
+          className="data-[orientation=vertical]:h-5"
+        />
+        <span className="px-2 font-mono text-[13px] tabular-nums">
+          <Private>{formatSignedEuro(net)}</Private>
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            void setIgnored(
+              selected.map((row) => row.id),
+              true,
+            )
+          }
+        >
+          <EyeOff />
+          Ausblenden
+        </Button>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Download />
+          CSV exportieren
+        </Button>
+      </SelectionBar>
 
       <ExportDialog
         open={dialogOpen}

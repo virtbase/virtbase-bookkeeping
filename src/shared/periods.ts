@@ -42,6 +42,10 @@ export function nextKey(key: string, granularity: Granularity): string {
   return granularity === "week" ? shiftDay(key, 7) : shiftMonth(key, 1);
 }
 
+export function bucketEnd(key: string, granularity: Granularity): string {
+  return shiftDay(nextKey(key, granularity), -1);
+}
+
 export function bucketKeys(
   from: string,
   to: string,

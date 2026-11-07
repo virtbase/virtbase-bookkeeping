@@ -1,4 +1,8 @@
 import { eq } from "drizzle-orm";
+import {
+  REVIEW_MONERO_DETAILS,
+  REVIEW_MONERO_RATE,
+} from "../../shared/kinds.ts";
 import { atomicToXmr } from "../../shared/money.ts";
 import type { MoneroImportResultDto } from "../../shared/types.ts";
 import { audit } from "../audit.ts";
@@ -9,8 +13,6 @@ import { parseMoneroCsv, withStableIds } from "./csv.ts";
 import type { Rate, RateProvider } from "./rates.ts";
 
 const DEFAULT_LABEL = "Primary account";
-const REASON_NAME = "Name und Produkt ergänzen.";
-const REASON_RATE = "Kurs nicht gefunden, bitte eintragen.";
 
 function marketCents(atomic: string, eur: number): number {
   return Math.round((Number(atomic) / 1e12) * eur * 100);
@@ -70,7 +72,7 @@ export async function importMoneroRows(
         method: "Monero",
         reference: row.txid,
         needsReview: true,
-        reviewReason: rate ? REASON_NAME : REASON_RATE,
+        reviewReason: rate ? REVIEW_MONERO_DETAILS : REVIEW_MONERO_RATE,
         xmrAtomic: row.atomic,
         xmrRate: rate?.eur ?? null,
         rateSource: rate?.source ?? null,
