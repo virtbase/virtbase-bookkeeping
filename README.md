@@ -164,6 +164,10 @@ Keep the `.sqlite-wal` and `.sqlite-shm` files out of it: leftover ones would co
 
 Each category belongs to a Lexware account, set under **CSV-Export** in the settings. By default Stripe and fees go to `Stripe`, Monero goes to `Monero`. One click on **CSV exportieren** writes one file per account, either all of them or none. Categories with the same account name share a file. Changing the assignment only affects new exports.
 
+## File names
+
+Export files are named `0012 Stripe 01.10.2026 bis 31.10.2026.csv`: the export number first, so file managers list them in export order, then the account and the booked period. The scheme is set under **CSV-Export** with placeholders such as `{nummer}`, `{konto}` and `{zeitraum}`, and must contain `{nummer}`. Saving a new scheme renames every existing export file in place, after a confirmation. If anything is in the way, no file is renamed.
+
 ## Reset
 
 **Erweiterte Optionen** in the settings has two reset actions:

@@ -6,12 +6,14 @@ import type {
   BackupStatusDto,
   BatchDto,
   ExportsDto,
+  FileNameStatusDto,
   FolderChoiceDto,
   InvoiceLookupDto,
   MoneroImportResultDto,
   MoneroStatusDto,
   PreferencesDto,
   RegeneratedExportDto,
+  RenameResultDto,
   RestoreResultDto,
   SettingsDto,
   SummaryDto,
@@ -110,6 +112,13 @@ export const api = {
   voidExport: (id: number) => request(`exports/${id}/void`, { method: "POST" }),
   markImported: (id: number) =>
     request(`exports/${id}/imported`, { method: "POST" }),
+  renamePreview: (template: string) =>
+    request<FileNameStatusDto>(
+      "exports/rename/preview",
+      json("POST", { template }),
+    ),
+  renameExports: () =>
+    request<RenameResultDto>("exports/rename", { method: "POST" }),
   regenerateExport: (id: number) =>
     request<RegeneratedExportDto>(`exports/${id}/regenerate`, {
       method: "POST",

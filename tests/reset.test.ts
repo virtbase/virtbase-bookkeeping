@@ -150,7 +150,7 @@ describe("resetting exports", () => {
     expect(response.status).toBe(200);
     expect(second?.id).toBe(1);
     expect(second?.filePath).not.toBe(first?.filePath);
-    expect(second?.filePath.endsWith("_2.csv")).toBe(true);
+    expect(second?.filePath.endsWith(" (2).csv")).toBe(true);
     expect(readFileSync(first?.filePath ?? "", "utf8")).toBe(content);
     expect(readFileSync(second?.filePath ?? "", "utf8")).toContain("7.99");
   });

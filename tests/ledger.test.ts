@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
@@ -16,6 +22,7 @@ import { listExports, listTransactions } from "../src/server/queries.ts";
 import type { BalanceReader } from "../src/server/stripe/client.ts";
 import type { BalanceTransaction } from "../src/server/stripe/mapping.ts";
 import { refreshFeeRows, syncStripe } from "../src/server/stripe/sync.ts";
+import { DEFAULT_FILE_NAME_TEMPLATE } from "../src/shared/file-name.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../src/shared/purpose.ts";
 import type { SettingsDto } from "../src/shared/types.ts";
 
@@ -43,6 +50,7 @@ function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
     moneroNodes: ["https://node.example.org:18089"],
     accounts: { stripe: "Stripe", fees: "Stripe", monero: "Monero" },
     purposeTemplates: DEFAULT_PURPOSE_TEMPLATES,
+    fileNameTemplate: DEFAULT_FILE_NAME_TEMPLATE,
     ...overrides,
   };
 }
@@ -356,8 +364,8 @@ describe("exports per account", () => {
       ["Stripe", 2],
     ]);
     expect(names(config.exportDir)).toEqual([
-      "virtbase_monero_2026-11-02_2026-11-02_0001.csv",
-      "virtbase_stripe_2026-10-02_2026-10-31_0002.csv",
+      "0001 Monero 02.11.2026.csv",
+      "0002 Stripe 02.10.2026 bis 31.10.2026.csv",
     ]);
     const [monero, stripe] = batches;
     expect(lines(monero?.filePath ?? "")[0]).toContain("Lena Demo");
@@ -376,7 +384,7 @@ describe("exports per account", () => {
       "Monero",
       "Stripe",
     ]);
-    expect(batches[0]?.fileName).toContain("virtbase_gebuehren_");
+    expect(batches[0]?.fileName).toMatch(/^\d{4} Gebühren /);
   });
 
   test("merges everything with the same name, ignoring case", async () => {
@@ -396,23 +404,22 @@ describe("exports per account", () => {
   });
 
   test("leaves nothing behind when the second file fails", async () => {
-    const config = settings({
-      accounts: {
-        stripe: "x".repeat(300),
-        fees: "x".repeat(300),
-        monero: "Monero",
-      },
-    });
+    const config = settings();
     const db = await withMonero(config);
+    const blocker = "0002 Stripe 02.10.2026 bis 31.10.2026.csv";
+    symlinkSync(
+      join(config.exportDir, "missing"),
+      join(config.exportDir, blocker),
+    );
     expect(() => createExports(db, mixed, config, now)).toThrow();
-    expect(names(config.exportDir)).toEqual([]);
+    expect(names(config.exportDir)).toEqual([blocker]);
+    rmSync(join(config.exportDir, blocker));
     expect(listExports(db, config).batches).toEqual([]);
     const statuses = listTransactions(db, config)
       .filter((row) => mixed.includes(row.id))
       .map((row) => row.status);
     expect(statuses).toEqual(["ready", "ready", "ready"]);
-    const retry = { ...config, accounts: settings().accounts };
-    expect(createExports(db, mixed, retry, now)).toHaveLength(2);
+    expect(createExports(db, mixed, config, now)).toHaveLength(2);
   });
 
   test("each file can be voided on its own", async () => {

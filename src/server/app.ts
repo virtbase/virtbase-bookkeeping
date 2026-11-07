@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { upgradeWebSocket } from "hono/bun";
 import * as z from "zod";
 import {
+  fileNameSchema,
   lexwareKeySchema,
   moneroWalletSchema,
   preferencesSchema,
@@ -26,6 +27,7 @@ import { assertBackupFolder, BackupService } from "./backup.ts";
 import type { Db } from "./db/client.ts";
 import { transactions } from "./db/schema.ts";
 import { renderAuditCsv } from "./export/csv.ts";
+import { fileNameStatus, renameExports } from "./export/rename.ts";
 import {
   createExport,
   ExportError,
@@ -412,6 +414,18 @@ export function createApp(dependencies: AppDependencies): Hono {
     return context.json(createExport(db, ids, settings(), now()));
   });
 
+  app.post("/api/exports/rename/preview", async (context) => {
+    const { template } = fileNameSchema.parse(await context.req.json());
+    return context.json(fileNameStatus(db, template, settings().exportDir));
+  });
+
+  app.post("/api/exports/rename", (context) => {
+    const current = settings();
+    return context.json(
+      renameExports(db, current.fileNameTemplate, current.exportDir),
+    );
+  });
+
   app.post("/api/exports/:id/regenerate", (context) =>
     context.json(
       regenerateExport(db, Number(context.req.param("id")), settings()),
@@ -475,7 +489,17 @@ export function createApp(dependencies: AppDependencies): Hono {
         "Dieser Ordner ist nicht erreichbar oder nicht beschreibbar.",
       );
     }
-    const backupDirChanged = next.backupDir !== settings().backupDir;
+    const previous = settings();
+    if (next.fileNameTemplate !== previous.fileNameTemplate) {
+      try {
+        renameExports(db, next.fileNameTemplate, previous.exportDir);
+      } catch (error) {
+        throw error instanceof ExportError
+          ? new FormError("fileNameTemplate", error.message)
+          : error;
+      }
+    }
+    const backupDirChanged = next.backupDir !== previous.backupDir;
     writeSettings(db, next);
     refreshFeeRows(db, next, now());
     audit(db, "settings", {});

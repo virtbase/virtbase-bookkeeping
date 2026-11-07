@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
-import { accountSlug, groupByAccount } from "../../shared/accounts.ts";
+import { groupByAccount } from "../../shared/accounts.ts";
 import type {
   BatchDto,
   DateFormat,
@@ -21,9 +21,9 @@ import type { Db } from "../db/client.ts";
 import { exportBatches, exportRows, transactions } from "../db/schema.ts";
 import { baselineEnd, statusOf } from "../queries.ts";
 import { resolveRow } from "../resolve.ts";
-import { localDay } from "../time.ts";
 import type { CsvRow } from "./csv.ts";
 import { renderCsv } from "./csv.ts";
+import { batchFileName } from "./file-names.ts";
 
 export class ExportError extends Error {}
 
@@ -44,20 +44,10 @@ function availableName(directory: string, name: string): string {
   let candidate = name;
   let copy = 2;
   while (existsSync(join(directory, candidate))) {
-    candidate = name.replace(/\.csv$/, `_${copy}.csv`);
+    candidate = name.replace(/\.csv$/, ` (${copy}).csv`);
     copy += 1;
   }
   return candidate;
-}
-
-function targetName(
-  account: string,
-  firstAt: number,
-  lastAt: number,
-  id: number,
-): string {
-  const number = String(id).padStart(4, "0");
-  return `virtbase_${accountSlug(account)}_${localDay(firstAt)}_${localDay(lastAt)}_${number}.csv`;
 }
 
 export function createExport(
@@ -149,7 +139,7 @@ export function createExport(
           .get();
         const fileName = availableName(
           settings.exportDir,
-          targetName(plan.account, plan.firstAt, plan.lastAt, batch.id),
+          batchFileName(batch, settings.fileNameTemplate),
         );
         const filePath = join(settings.exportDir, fileName);
         tx.insert(exportRows)

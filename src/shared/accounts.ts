@@ -1,21 +1,5 @@
-const TRANSLITERATION: Record<string, string> = {
-  ä: "ae",
-  ö: "oe",
-  ü: "ue",
-  ß: "ss",
-};
-
 export function accountKey(name: string): string {
   return name.trim().toLocaleLowerCase("de-DE");
-}
-
-export function accountSlug(name: string): string {
-  const slug = accountKey(name)
-    .replace(/[äöüß]/g, (letter) => TRANSLITERATION[letter] ?? letter)
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "konto";
 }
 
 export interface AccountGroup<T> {

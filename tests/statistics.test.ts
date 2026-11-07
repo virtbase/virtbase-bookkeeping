@@ -3,6 +3,7 @@ import { openDatabase } from "../src/server/db/client.ts";
 import { transactions } from "../src/server/db/schema.ts";
 import { listStatRows, listTransactions } from "../src/server/queries.ts";
 import { historyStart } from "../src/server/stripe/sync.ts";
+import { DEFAULT_FILE_NAME_TEMPLATE } from "../src/shared/file-name.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../src/shared/purpose.ts";
 import type { StatOptions, StatRow } from "../src/shared/statistics.ts";
 import {
@@ -300,6 +301,7 @@ const base: SettingsDto = {
   moneroNodes: ["https://node.example.org:18089"],
   accounts: { stripe: "Stripe", fees: "Stripe", monero: "Monero" },
   purposeTemplates: DEFAULT_PURPOSE_TEMPLATES,
+  fileNameTemplate: DEFAULT_FILE_NAME_TEMPLATE,
 };
 const entry = {
   source: "stripe" as const,

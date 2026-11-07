@@ -12,6 +12,7 @@ import { SecretStore } from "../src/server/secrets.ts";
 import { createSessionState } from "../src/server/security.ts";
 import { readSettings, writeSettings } from "../src/server/settings.ts";
 import { auditLabel, formatAuditDetail } from "../src/shared/audit.ts";
+import { DEFAULT_FILE_NAME_TEMPLATE } from "../src/shared/file-name.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../src/shared/purpose.ts";
 import { settingsSchema } from "../src/shared/schemas.ts";
 import type { SettingsDto } from "../src/shared/types.ts";
@@ -29,6 +30,7 @@ const base: SettingsDto = {
   moneroNodes: ["https://node.example.org:18089"],
   accounts: { stripe: "Stripe", fees: "Stripe", monero: "Monero" },
   purposeTemplates: DEFAULT_PURPOSE_TEMPLATES,
+  fileNameTemplate: DEFAULT_FILE_NAME_TEMPLATE,
 };
 
 const row = {

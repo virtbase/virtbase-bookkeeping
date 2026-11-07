@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { fileNameProblem } from "./file-name.ts";
 import { parseEuroInput } from "./money.ts";
 import type { PurposeKey } from "./purpose.ts";
 import {
@@ -70,6 +71,20 @@ const purposeTemplates = z.object(
   ) as Record<PurposeKey, ReturnType<typeof purposeTemplate>>,
 );
 
+const fileNameTemplate = z
+  .string()
+  .trim()
+  .min(1, "Bitte ein Schema angeben.")
+  .max(120, "Bitte höchstens 120 Zeichen verwenden.")
+  .superRefine((value, context) => {
+    const problem = fileNameProblem(value);
+    if (problem) {
+      context.addIssue({ code: "custom", message: problem });
+    }
+  });
+
+export const fileNameSchema = z.object({ template: fileNameTemplate });
+
 const companyName = z.string().trim().min(1, "Bitte einen Namen eingeben.");
 const accountName = z
   .string()
@@ -109,6 +124,7 @@ export const settingsSchema = z.object({
   }),
   moneroNodes: z.array(moneroNode).min(1, "Mindestens ein Node ist nötig."),
   purposeTemplates,
+  fileNameTemplate,
 });
 
 export const moneroWalletSchema = z.object({

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { DEFAULT_FILE_NAME_TEMPLATE } from "../src/shared/file-name.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../src/shared/purpose.ts";
 import {
   lexwareKeySchema,
@@ -21,6 +22,7 @@ const valid: SettingsDto = {
   moneroNodes: ["https://node.example.org:18089"],
   accounts: { stripe: "Stripe", fees: "Stripe", monero: "Monero" },
   purposeTemplates: DEFAULT_PURPOSE_TEMPLATES,
+  fileNameTemplate: DEFAULT_FILE_NAME_TEMPLATE,
 };
 
 function errorFor(change: Partial<SettingsDto>): string | undefined {

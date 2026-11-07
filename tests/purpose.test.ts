@@ -9,6 +9,7 @@ import { transactions } from "../src/server/db/schema.ts";
 import { chooseFolder } from "../src/server/folder-dialog.ts";
 import { resolveRow } from "../src/server/resolve.ts";
 import { readSyncMarks } from "../src/server/settings.ts";
+import { DEFAULT_FILE_NAME_TEMPLATE } from "../src/shared/file-name.ts";
 import {
   DEFAULT_PURPOSE_TEMPLATES,
   PLACEHOLDER_DESCRIPTIONS,
@@ -32,6 +33,7 @@ const settings: SettingsDto = {
   moneroNodes: ["https://node.example.org:18089"],
   accounts: { stripe: "Stripe", fees: "Stripe", monero: "Monero" },
   purposeTemplates: DEFAULT_PURPOSE_TEMPLATES,
+  fileNameTemplate: DEFAULT_FILE_NAME_TEMPLATE,
 };
 
 const occurredAt = Date.parse("2026-11-05T00:48:43Z") / 1000;

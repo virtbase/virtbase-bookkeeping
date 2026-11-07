@@ -4,6 +4,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   "export.void": "Export storniert",
   "export.regenerate": "Export erneut erzeugt",
   "export.imported": "In Lexware importiert",
+  "export.rename": "Exportdateien umbenannt",
   "monero.import": "Monero-Zahlungen importiert",
   "monero.wallet": "Monero-Wallet eingerichtet",
   "monero.wallet.remove": "Monero-Wallet entfernt",
@@ -36,6 +37,8 @@ const DETAIL_LABELS: Record<string, string> = {
   skipped: "übersprungen",
   withoutRate: "ohne Kurs",
   restoreHeight: "Höhe",
+  renamed: "umbenannt",
+  missing: "fehlend",
 };
 
 const stamp = new Intl.DateTimeFormat("de-DE", {

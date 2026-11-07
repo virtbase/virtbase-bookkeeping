@@ -1,4 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  DEFAULT_FILE_NAME_TEMPLATE,
+  FILE_NAME_SAMPLE,
+  renderFileName,
+} from "@shared/file-name.ts";
 import type { PurposeKey } from "@shared/purpose.ts";
 import { PURPOSE_DEFINITIONS, PURPOSE_KEYS } from "@shared/purpose.ts";
 import type { SecretForm } from "@shared/schemas.ts";
@@ -11,6 +16,7 @@ import type {
   BackupStatusDto,
   DateFormat,
   DecimalFormat,
+  FileNameStatusDto,
   RateSource,
   SettingsDto,
   Source,
@@ -50,7 +56,16 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -81,6 +96,7 @@ import { usePreferences } from "@/lib/preferences";
 import { runShortcut, useShortcut } from "@/lib/shortcuts";
 import { DangerZone } from "@/pages/danger-zone";
 import { MoneroWalletSection, NodeList } from "@/pages/monero-settings";
+import type { PlaceholderTopic } from "@/pages/purpose-sheet";
 import { PurposeSheet } from "@/pages/purpose-sheet";
 
 const SECRET_MASK = "••••••••••••••••";
@@ -308,6 +324,95 @@ function PurposeField({
   );
 }
 
+function FileNameField({
+  control,
+  setValue,
+  status,
+  onRename,
+  onShowPlaceholders,
+}: {
+  control: Control<SettingsDto>;
+  setValue: UseFormSetValue<SettingsDto>;
+  status: FileNameStatusDto | null;
+  onRename: () => void;
+  onShowPlaceholders: (topic: PlaceholderTopic) => void;
+}) {
+  return (
+    <Controller
+      control={control}
+      name="fileNameTemplate"
+      render={({ field, fieldState }) => (
+        <Field data-invalid={fieldState.invalid}>
+          <LabelWithHelp
+            htmlFor="file-name"
+            help="Gilt für neue Exporte. Beim Speichern bekommen auch alle vorhandenen Exportdateien den neuen Namen."
+          >
+            Dateiname
+          </LabelWithHelp>
+          <InputGroup>
+            <InputGroupInput
+              {...field}
+              id="file-name"
+              aria-invalid={fieldState.invalid}
+              className="font-mono text-[13px]"
+            />
+            <InputGroupAddon align="inline-end">
+              {field.value !== DEFAULT_FILE_NAME_TEMPLATE && (
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label="Dateiname auf Standard zurücksetzen"
+                  onClick={() =>
+                    setValue("fileNameTemplate", DEFAULT_FILE_NAME_TEMPLATE, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <RotateCcw />
+                </InputGroupButton>
+              )}
+              <InputGroupButton
+                size="icon-xs"
+                aria-label="Platzhalter für den Dateinamen anzeigen"
+                onClick={() => onShowPlaceholders("fileName")}
+              >
+                <Braces />
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+          {fieldState.invalid ? (
+            <FieldError errors={[fieldState.error]} />
+          ) : (
+            <FieldDescription className="wrap-anywhere">
+              Beispiel: {renderFileName(field.value, FILE_NAME_SAMPLE)}
+            </FieldDescription>
+          )}
+          {status && status.pending > 0 && !fieldState.isDirty && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
+              <span className="text-muted-foreground text-xs">
+                {countLabel(
+                  status.pending,
+                  "ältere Datei heißt",
+                  "ältere Dateien heißen",
+                )}{" "}
+                noch anders.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRename}
+              >
+                Jetzt umbenennen
+              </Button>
+            </div>
+          )}
+        </Field>
+      )}
+    />
+  );
+}
+
 const ACCOUNT_FIELDS: { source: Source; label: string }[] = [
   { source: "stripe", label: "Stripe" },
   { source: "fees", label: "Gebühren" },
@@ -316,6 +421,7 @@ const ACCOUNT_FIELDS: { source: Source; label: string }[] = [
 
 const FORM_FIELDS: FieldPath<SettingsDto>[] = [
   "exportDir",
+  "fileNameTemplate",
   "backupDir",
   "baselineDate",
   "feesClosedThrough",
@@ -397,7 +503,15 @@ function GeneralForm({
   const { update, preferences } = usePreferences();
   const [picking, setPicking] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [placeholderKey, setPlaceholderKey] = useState<PurposeKey | null>(null);
+  const [placeholderKey, setPlaceholderKey] = useState<PlaceholderTopic | null>(
+    null,
+  );
+  const [nameStatus, setNameStatus] = useState<FileNameStatusDto | null>(null);
+  const [renameRequest, setRenameRequest] = useState<{
+    status: FileNameStatusDto;
+    value: SettingsDto | null;
+  } | null>(null);
+  const [renaming, setRenaming] = useState(false);
   const [backupStatus, setBackupStatus] = useState<BackupStatusDto | null>(
     null,
   );
@@ -407,19 +521,47 @@ function GeneralForm({
     mode: "onTouched",
   });
 
+  useEffect(() => {
+    void api.renamePreview(initial.fileNameTemplate).then(setNameStatus);
+  }, [initial.fileNameTemplate]);
+
+  const persist = async (
+    value: SettingsDto,
+    message = "Einstellungen gespeichert.",
+  ) => {
+    try {
+      const saved = await api.saveSettings(value);
+      form.reset(saved);
+      setNameStatus(await api.renamePreview(saved.fileNameTemplate));
+      await onChanged();
+      toast(message);
+    } catch (error) {
+      const field = error instanceof ApiError ? error.field : undefined;
+      if (field?.startsWith("purpose") || field?.startsWith("moneroNodes")) {
+        setAdvancedOpen(true);
+      }
+      showFormError(error, form.setError, FORM_FIELDS);
+    }
+  };
+
   const save = form.handleSubmit(
     async (value) => {
-      try {
-        form.reset(await api.saveSettings(value));
-        await onChanged();
-        toast("Einstellungen gespeichert.");
-      } catch (error) {
-        const field = error instanceof ApiError ? error.field : undefined;
-        if (field?.startsWith("purpose") || field?.startsWith("moneroNodes")) {
-          setAdvancedOpen(true);
+      if (
+        value.fileNameTemplate !==
+        form.formState.defaultValues?.fileNameTemplate
+      ) {
+        try {
+          const status = await api.renamePreview(value.fileNameTemplate);
+          if (status.pending > 0) {
+            setRenameRequest({ status, value });
+            return;
+          }
+        } catch (error) {
+          showFormError(error, form.setError, FORM_FIELDS);
+          return;
         }
-        showFormError(error, form.setError, FORM_FIELDS);
       }
+      await persist(value);
     },
     (errors) => {
       if (errors.purposeTemplates || errors.moneroNodes) {
@@ -429,6 +571,31 @@ function GeneralForm({
   );
 
   useShortcut("save", () => void save());
+
+  const confirmRename = async () => {
+    if (!renameRequest) {
+      return;
+    }
+    const { status, value } = renameRequest;
+    const renamed = `${countLabel(status.pending, "Datei", "Dateien")} umbenannt.`;
+    setRenaming(true);
+    try {
+      if (value) {
+        await persist(value, `Einstellungen gespeichert, ${renamed}`);
+      } else {
+        await api.renameExports();
+        setNameStatus(
+          await api.renamePreview(form.getValues("fileNameTemplate")),
+        );
+        toast(renamed);
+      }
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setRenaming(false);
+      setRenameRequest(null);
+    }
+  };
 
   const savedCount = form.formState.submitCount;
   useEffect(() => {
@@ -538,6 +705,16 @@ function GeneralForm({
                 <FieldError errors={[fieldState.error]} />
               </Field>
             )}
+          />
+          <FileNameField
+            control={form.control}
+            setValue={form.setValue}
+            status={nameStatus}
+            onRename={() =>
+              nameStatus &&
+              setRenameRequest({ status: nameStatus, value: null })
+            }
+            onShowPlaceholders={setPlaceholderKey}
           />
           <Controller
             control={form.control}
@@ -804,8 +981,63 @@ function GeneralForm({
         </Button>
       </div>
 
+      <Dialog
+        open={renameRequest !== null}
+        onOpenChange={(open) => {
+          if (!open && !renaming) {
+            setRenameRequest(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {countLabel(
+                renameRequest?.status.pending ?? 0,
+                "Datei",
+                "Dateien",
+              )}{" "}
+              umbenennen?
+            </DialogTitle>
+            <DialogDescription>
+              Alle Exportdateien bekommen den neuen Namen. Dateien, die nicht
+              mehr im Ordner liegen, bekommen ihn beim erneuten Erzeugen.
+            </DialogDescription>
+            {renameRequest?.status.example && (
+              <DialogDescription className="wrap-anywhere">
+                Aus{" "}
+                <span className="text-foreground">
+                  „{renameRequest.status.example.from}“
+                </span>{" "}
+                wird{" "}
+                <span className="text-foreground">
+                  „{renameRequest.status.example.to}“
+                </span>
+                .
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRenameRequest(null)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              type="button"
+              disabled={renaming}
+              onClick={() => void confirmRename()}
+            >
+              Umbenennen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <PurposeSheet
-        purposeKey={placeholderKey}
+        topic={placeholderKey}
         control={form.control}
         onClose={() => setPlaceholderKey(null)}
       />

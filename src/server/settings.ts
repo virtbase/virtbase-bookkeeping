@@ -1,4 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
+import { DEFAULT_FILE_NAME_TEMPLATE } from "../shared/file-name.ts";
 import { DEFAULT_PURPOSE_TEMPLATES } from "../shared/purpose.ts";
 import type {
   PreferencesDto,
@@ -56,6 +57,7 @@ export function readSettings(db: Db, defaultExportDir: string): SettingsDto {
     accounts: DEFAULT_ACCOUNTS,
     moneroNodes: DEFAULT_MONERO_NODES,
     purposeTemplates: DEFAULT_PURPOSE_TEMPLATES,
+    fileNameTemplate: DEFAULT_FILE_NAME_TEMPLATE,
   };
   if (!stored) {
     return defaults;

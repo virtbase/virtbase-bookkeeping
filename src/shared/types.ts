@@ -126,6 +126,17 @@ export interface SettingsDto {
   accounts: Record<Source, string>;
   moneroNodes: string[];
   purposeTemplates: PurposeTemplates;
+  fileNameTemplate: string;
+}
+
+export interface FileNameStatusDto {
+  pending: number;
+  example: { from: string; to: string } | null;
+}
+
+export interface RenameResultDto {
+  renamed: number;
+  missing: number;
 }
 
 export interface AuditEventDto {
