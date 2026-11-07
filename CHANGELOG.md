@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.6.0...v0.7.0) (2026-11-07)
+
+
+### Features
+
+* improve forecast calculation with customer matching ([96f681e](https://github.com/virtbase/virtbase-bookkeeping/commit/96f681ea2e32f48b1cc08e8b79f3d2922b766e94))
+
 ## [0.6.0](https://github.com/virtbase/virtbase-bookkeeping/compare/v0.5.0...v0.6.0) (2026-11-07)
 
 
